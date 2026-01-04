@@ -1,0 +1,95 @@
+{
+  "data": [
+    {
+      "id": 437213,
+      "date": "2025-11-01",
+      "handle": "gemini-gemini-advanced",
+      "name": "Gemini & Gemini Advanced",
+      "month_visited_count": 1351749213,
+      "growth": 169693555,
+      "growth_rate": 0.1436,
+      "description": "Google's personal, proactive, and powerful AI assistant.",
+      "tags": ["AI assistant", "Conversational AI", "Google AI", "Productivity tool"],
+      "created_at": "2025-12-08 12:02:39",
+      "tool_id": "10402"
+    },
+    {
+      "id": 444450,
+      "date": "2025-11-01",
+      "handle": "grok",
+      "name": "Grok",
+      "month_visited_count": 234428108,
+      "growth": 30121121,
+      "growth_rate": 0.1474,
+      "description": "Grok is a free AI assistant by xAI for truth, objectivity, real-time search, and more.",
+      "tags": ["AI assistant", "Real-time search", "Image generation", "xAI"],
+      "created_at": "2025-12-08 22:07:47",
+      "tool_id": "24836"
+    },
+    {
+      "id": 444451,
+      "date": "2025-11-01",
+      "handle": "chatgpt",
+      "name": "ChatGPT",
+      "month_visited_count": 1892345678,
+      "growth": 234567890,
+      "growth_rate": 0.1412,
+      "description": "OpenAI's conversational AI model for text generation and assistance.",
+      "tags": ["AI assistant", "OpenAI", "Text generation", "Chatbot"],
+      "created_at": "2025-12-08 10:00:00",
+      "tool_id": "10001"
+    },
+    {
+      "id": 444452,
+      "date": "2025-11-01",
+      "handle": "claude",
+      "name": "Claude",
+      "month_visited_count": 567890123,
+      "growth": 78901234,
+      "growth_rate": 0.1610,
+      "description": "Anthropic's AI assistant focused on safety and helpfulness.",
+      "tags": ["AI assistant", "Anthropic", "Safe AI", "Writing assistant"],
+      "created_at": "2025-12-08 11:00:00",
+      "tool_id": "10002"
+    },
+    {
+      "id": 444453,
+      "date": "2025-11-01",
+      "handle": "midjourney",
+      "name": "Midjourney",
+      "month_visited_count": 345678901,
+      "growth": -12345678,
+      "growth_rate": -0.0345,
+      "description": "AI-powered image generation tool for creating stunning artwork.",
+      "tags": ["Image generation", "Art", "Creative AI", "Design"],
+      "created_at": "2025-12-08 12:00:00",
+      "tool_id": "10003"
+    },
+    {
+      "id": 444454,
+      "date": "2025-11-01",
+      "handle": "notion-ai",
+      "name": "Notion AI",
+      "month_visited_count": 123456789,
+      "growth": 23456789,
+      "growth_rate": 0.2345,
+      "description": "AI writing assistant integrated into Notion workspace.",
+      "tags": ["Productivity", "Writing assistant", "Workspace", "Notes"],
+      "created_at": "2025-12-08 13:00:00",
+      "tool_id": "10004"
+    },
+    {
+      "id": 444455,
+      "date": "2025-11-01",
+      "handle": "perplexity",
+      "name": "Perplexity AI",
+      "month_visited_count": 89012345,
+      "growth": 12345678,
+      "growth_rate": 0.1612,
+      "description": "AI-powered search engine that provides accurate answers with citations.",
+      "tags": ["Search engine", "Research", "Citations", "AI search"],
+      "created_at": "2025-12-08 14:00:00",
+      "tool_id": "10005"
+    }
+  ]
+}
