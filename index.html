@@ -11,12 +11,36 @@
       theme: {
         extend: {
           maxWidth: {
-            '8xl': '1440px'
+            '8xl': '1600px'
           }
         }
       }
     }
   </script>
+  <style>
+    /* 排序箭头样式 */
+    .sort-arrows {
+      display: inline-flex;
+      flex-direction: column;
+      margin-left: 4px;
+      line-height: 0;
+    }
+    .sort-arrows i {
+      font-size: 14px;
+      color: #d1d5db;
+      cursor: pointer;
+      transition: color 0.15s;
+      height: 10px;
+      display: flex;
+      align-items: center;
+    }
+    .sort-arrows i:hover {
+      color: #2563eb;
+    }
+    .sort-arrows i.active {
+      color: #2563eb;
+    }
+  </style>
 </head>
 <body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen">
 
@@ -30,7 +54,7 @@
           </div>
           <div>
             <h1 class="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">网站榜单</h1>
-            <p class="text-sm text-gray-500">AI 工具网站月度访问量排名</p>
+            <p class="text-sm text-gray-500">AI 网站流量增长排名</p>
           </div>
         </div>
         <div class="hidden md:flex items-center gap-2 text-sm text-gray-500">
@@ -83,6 +107,15 @@
               <i class="fas fa-download mr-2"></i>
               <span class="font-medium">下载 JSON</span>
             </button>
+            <button onclick="handleClearCurrentMonth()" class="inline-flex items-center px-5 py-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-all hover:scale-105 border border-red-200">
+              <i class="fas fa-trash-alt mr-2"></i>
+              <span class="font-medium">清空当前月</span>
+            </button>
+            <div class="w-px h-8 bg-gray-200 mx-1"></div>
+            <button onclick="handleTranslate()" id="translateBtn" class="inline-flex items-center px-5 py-2.5 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 transition-all hover:scale-105 border border-green-200">
+              <i class="fas fa-language mr-2"></i>
+              <span class="font-medium">一键翻译</span>
+            </button>
           </div>
         </div>
         <!-- /Component: ActionBar -->
@@ -97,6 +130,14 @@
                      oninput="handleSearch()"
                      class="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white outline-none transition-all">
             </div>
+            <button onclick="toggleShowFavoritesOnly()" id="favoritesFilterBtn" class="inline-flex items-center px-4 py-3 text-gray-600 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all border border-gray-200">
+              <i class="far fa-heart mr-2"></i>
+              <span>收藏 (0)</span>
+            </button>
+            <button onclick="toggleShowNotesOnly()" id="notesFilterBtn" class="inline-flex items-center px-4 py-3 text-gray-600 hover:text-yellow-600 hover:bg-yellow-50 rounded-xl transition-all border border-gray-200">
+              <i class="far fa-sticky-note mr-2"></i>
+              <span>备注 (0)</span>
+            </button>
             <button onclick="toggleFilterPanel()" id="filterToggleBtn" class="inline-flex items-center px-4 py-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all border border-gray-200">
               <i class="fas fa-filter mr-2"></i>
               <span>筛选</span>
@@ -105,6 +146,10 @@
             <button onclick="handleResetAll()" class="inline-flex items-center px-4 py-3 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all">
               <i class="fas fa-rotate-right mr-2"></i>
               <span>重置</span>
+            </button>
+            <button onclick="toggleTrendView()" id="trendViewBtn" class="inline-flex items-center px-4 py-3 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-gray-200" title="切换趋势视图">
+              <i class="fas fa-chart-area mr-2"></i>
+              <span>趋势</span>
             </button>
           </div>
 
@@ -147,6 +192,53 @@
                 <input type="text" id="rateMax" placeholder="如 50%" oninput="handleFilter()"
                        class="w-24 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white outline-none transition-all">
               </div>
+              <!-- Change 筛选 -->
+              <div class="flex items-center gap-3">
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-600 whitespace-nowrap">
+                  <i class="fas fa-arrows-up-down text-orange-500"></i>
+                  Change
+                </label>
+                <input type="text" id="changeMin" placeholder="如 -5" oninput="handleFilter()"
+                       class="w-20 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white outline-none transition-all">
+                <span class="text-gray-300">—</span>
+                <input type="text" id="changeMax" placeholder="如 10" oninput="handleFilter()"
+                       class="w-20 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white outline-none transition-all">
+                <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer ml-2">
+                  <input type="checkbox" id="includeNew" onchange="handleFilter()" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                  <span>包含 NEW</span>
+                </label>
+              </div>
+            </div>
+            <!-- 持续增长筛选 -->
+            <div class="flex flex-wrap items-center gap-x-8 gap-y-4 mt-4 pt-4 border-t border-gray-100">
+              <!-- Growth 增长 (Growth > 0) -->
+              <div class="flex items-center gap-3">
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-600 whitespace-nowrap">
+                  <i class="fas fa-chart-line text-emerald-500"></i>
+                  Growth 增长
+                </label>
+                <select id="consecutiveGrowth" onchange="handleFilter()"
+                        class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white outline-none transition-all cursor-pointer">
+                  <option value="">不限</option>
+                  <option value="2">连续 2 个月</option>
+                  <option value="3">连续 3 个月</option>
+                  <option value="4">连续 4 个月</option>
+                </select>
+              </div>
+              <!-- Change 增长 (Change > 0) -->
+              <div class="flex items-center gap-3">
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-600 whitespace-nowrap">
+                  <i class="fas fa-ranking-star text-amber-500"></i>
+                  Change 增长
+                </label>
+                <select id="consecutiveChange" onchange="handleFilter()"
+                        class="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white outline-none transition-all cursor-pointer">
+                  <option value="">不限</option>
+                  <option value="2">连续 2 个月</option>
+                  <option value="3">连续 3 个月</option>
+                  <option value="4">连续 4 个月</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -171,27 +263,61 @@
               <thead>
                 <tr class="bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-200">
                   <th class="px-5 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">#</th>
-                  <th class="px-5 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">网站</th>
-                  <th class="px-5 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition select-none group" onclick="handleSort('month_visited_count')">
+                  <th class="px-5 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider select-none">
+                    <span class="flex items-center gap-2">
+                      <i class="fas fa-globe text-cyan-400"></i>
+                      WEB
+                      <span id="sort-name" class="sort-arrows">
+                        <i class="fas fa-caret-up" onclick="handleSort('name', 'asc')"></i>
+                        <i class="fas fa-caret-down" onclick="handleSort('name', 'desc')"></i>
+                      </span>
+                    </span>
+                  </th>
+                  <th class="px-5 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider select-none">
                     <span class="flex items-center gap-2">
                       <i class="fas fa-eye text-blue-400"></i>
                       Monthly Visit
-                      <span id="sort-month_visited_count" class="text-gray-300 group-hover:text-gray-500"><i class="fas fa-sort"></i></span>
+                      <span id="sort-month_visited_count" class="sort-arrows">
+                        <i class="fas fa-caret-up" onclick="handleSort('month_visited_count', 'asc')"></i>
+                        <i class="fas fa-caret-down" onclick="handleSort('month_visited_count', 'desc')"></i>
+                      </span>
                     </span>
                   </th>
-                  <th class="px-5 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition select-none group" onclick="handleSort('growth')">
+                  <th class="px-5 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider select-none">
                     <span class="flex items-center gap-2">
                       <i class="fas fa-chart-simple text-green-400"></i>
                       Growth
-                      <span id="sort-growth" class="text-gray-300 group-hover:text-gray-500"><i class="fas fa-sort"></i></span>
+                      <span id="sort-growth" class="sort-arrows">
+                        <i class="fas fa-caret-up" onclick="handleSort('growth', 'asc')"></i>
+                        <i class="fas fa-caret-down" onclick="handleSort('growth', 'desc')"></i>
+                      </span>
                     </span>
                   </th>
-                  <th class="px-5 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition select-none group" onclick="handleSort('growth_rate')">
+                  <th class="px-5 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider select-none">
                     <span class="flex items-center gap-2">
                       <i class="fas fa-percent text-purple-400"></i>
                       Growth Rate
-                      <span id="sort-growth_rate" class="text-gray-300 group-hover:text-gray-500"><i class="fas fa-sort"></i></span>
+                      <span id="sort-growth_rate" class="sort-arrows">
+                        <i class="fas fa-caret-up" onclick="handleSort('growth_rate', 'asc')"></i>
+                        <i class="fas fa-caret-down" onclick="handleSort('growth_rate', 'desc')"></i>
+                      </span>
                     </span>
+                  </th>
+                  <th class="px-5 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-20 select-none">
+                    <span class="flex items-center justify-center gap-1">
+                      <i class="fas fa-arrows-up-down text-orange-400"></i>
+                      Change
+                      <span id="sort-rank_change" class="sort-arrows">
+                        <i class="fas fa-caret-up" onclick="handleSort('rank_change', 'asc')"></i>
+                        <i class="fas fa-caret-down" onclick="handleSort('rank_change', 'desc')"></i>
+                      </span>
+                    </span>
+                  </th>
+                  <th class="px-5 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">
+                    <i class="fas fa-sticky-note text-yellow-400"></i>
+                  </th>
+                  <th class="px-5 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">
+                    <i class="fas fa-heart text-pink-400"></i>
                   </th>
                 </tr>
               </thead>
@@ -252,6 +378,101 @@
   </div>
   <!-- /Component: PasteModal -->
 
+  <!-- Component: NoteModal -->
+  <div id="noteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 transform scale-95 transition-transform duration-300" id="noteModalContent">
+      <div class="flex items-center justify-between p-5 border-b border-gray-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
+            <i class="fas fa-sticky-note text-yellow-600"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900">备注</h3>
+            <p id="noteModalName" class="text-sm text-gray-500"></p>
+          </div>
+        </div>
+        <button onclick="closeNoteModal()" class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+      <div class="p-5">
+        <textarea id="noteInput" placeholder="输入备注内容..."
+                  class="w-full h-32 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl resize-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 focus:bg-white outline-none text-sm transition-all"></textarea>
+      </div>
+      <div class="flex items-center justify-between gap-3 p-5 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
+        <button onclick="deleteNote()" id="deleteNoteBtn" class="px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-xl transition font-medium hidden">
+          <i class="fas fa-trash-alt mr-2"></i>删除
+        </button>
+        <div class="flex items-center gap-3 ml-auto">
+          <button onclick="closeNoteModal()" class="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition font-medium">
+            取消
+          </button>
+          <button onclick="saveNote()" class="px-5 py-2.5 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl hover:from-yellow-600 hover:to-orange-600 transition shadow-lg shadow-yellow-500/25 font-medium">
+            <i class="fas fa-check mr-2"></i>保存
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- /Component: NoteModal -->
+
+  <!-- Component: MonthSelectModal -->
+  <div id="monthSelectModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 transform scale-95 transition-transform duration-300" id="monthSelectModalContent">
+      <div class="flex items-center justify-between p-5 border-b border-gray-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+            <i class="fas fa-calendar-alt text-blue-600"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900">选择月份</h3>
+            <p class="text-sm text-gray-500">数据中未检测到日期字段</p>
+          </div>
+        </div>
+        <button onclick="closeMonthSelectModal()" class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+      <div class="p-5">
+        <label class="block text-sm font-medium text-gray-700 mb-3">请选择数据所属月份</label>
+        <div class="flex items-center gap-3">
+          <div class="flex-1">
+            <select id="monthSelectYear" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white outline-none transition-all appearance-none cursor-pointer text-center font-medium">
+              <!-- 年份选项由 JS 动态生成 -->
+            </select>
+          </div>
+          <span class="text-gray-400 font-medium">年</span>
+          <div class="flex-1">
+            <select id="monthSelectMonth" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white outline-none transition-all appearance-none cursor-pointer text-center font-medium">
+              <option value="01">1</option>
+              <option value="02">2</option>
+              <option value="03">3</option>
+              <option value="04">4</option>
+              <option value="05">5</option>
+              <option value="06">6</option>
+              <option value="07">7</option>
+              <option value="08">8</option>
+              <option value="09">9</option>
+              <option value="10">10</option>
+              <option value="11">11</option>
+              <option value="12">12</option>
+            </select>
+          </div>
+          <span class="text-gray-400 font-medium">月</span>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-3 p-5 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
+        <button onclick="closeMonthSelectModal()" class="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition font-medium">
+          取消
+        </button>
+        <button onclick="confirmMonthSelect()" class="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition shadow-lg shadow-blue-500/25 font-medium">
+          <i class="fas fa-check mr-2"></i>确认
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- /Component: MonthSelectModal -->
+
   <!-- Component: Toast (放在最后确保在最上层) -->
   <div id="toast" class="fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-[9999] flex items-center gap-3"></div>
   <!-- /Component: Toast -->
@@ -266,8 +487,8 @@
       currentMonth: '',
       filteredData: [],
       currentPage: 1,
-      sortField: null,
-      sortOrder: null,
+      sortField: 'growth',
+      sortOrder: 'desc',
       searchKeyword: '',
       filterPanelOpen: false,
       filters: {
@@ -276,8 +497,30 @@
         growthMin: null,
         growthMax: null,
         rateMin: null,
-        rateMax: null
-      }
+        rateMax: null,
+        changeMin: null,
+        changeMax: null,
+        includeNew: false,
+        consecutiveChange: null,  // 连续排名上升月数
+        consecutiveGrowth: null   // 连续增长月数
+      },
+      favorites: (() => {
+        const stored = localStorage.getItem('favorites');
+        if (!stored) return {};
+        const parsed = JSON.parse(stored);
+        // 兼容旧格式：如果是数组，转换为空对象（旧数据无法确定月份）
+        if (Array.isArray(parsed)) {
+          localStorage.removeItem('favorites');
+          return {};
+        }
+        return parsed;
+      })(),  // 按月份存储收藏 { "2025-11": ["handle1"], ... }
+      showFavoritesOnly: false,  // 是否只显示收藏
+      showNotesOnly: false,  // 是否只显示有备注的
+      translations: {},  // 翻译缓存 { "原文": "译文" }
+      isTranslated: false,  // 是否已翻译
+      notes: JSON.parse(localStorage.getItem('notes') || '{}'),  // 备注 { "handle": "备注内容" }
+      showTrendView: localStorage.getItem('showTrendView') === 'true'  // 是否展开趋势视图
     };
 
     // ==================== 工具函数 ====================
@@ -348,7 +591,7 @@
     }
 
     // 显示 Toast 消息
-    function showToast(message, type = 'success') {
+    function showToast(message, type = 'success', persistent = false) {
       const toast = document.getElementById('toast');
       const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
       const bgColor = type === 'success' ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
@@ -356,15 +599,29 @@
                       'bg-gradient-to-r from-gray-700 to-gray-800';
 
       toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl transform transition-all duration-300 z-50 flex items-center gap-3 text-white ${bgColor}`;
-      toast.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span>`;
+
+      if (persistent) {
+        // 需要手动关闭的通知，添加关闭按钮
+        toast.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span><button onclick="hideToast()" class="ml-2 hover:bg-white/20 rounded-full w-6 h-6 flex items-center justify-center"><i class="fas fa-times text-sm"></i></button>`;
+      } else {
+        toast.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span>`;
+      }
 
       setTimeout(() => {
         toast.classList.remove('translate-y-20', 'opacity-0');
       }, 10);
 
-      setTimeout(() => {
-        toast.classList.add('translate-y-20', 'opacity-0');
-      }, 3000);
+      // 非持久通知自动消失
+      if (!persistent) {
+        setTimeout(() => {
+          toast.classList.add('translate-y-20', 'opacity-0');
+        }, 3000);
+      }
+    }
+
+    function hideToast() {
+      const toast = document.getElementById('toast');
+      toast.classList.add('translate-y-20', 'opacity-0');
     }
 
     // ==================== UI 交互 ====================
@@ -414,10 +671,95 @@
     function saveToStorage() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state.allData));
+        // 同时保存到服务器文件
+        saveToServer();
       } catch (e) {
         console.error('保存数据失败:', e);
         showToast('保存数据失败，可能存储空间不足', 'error');
       }
+    }
+
+    // ==================== 服务器 API ====================
+
+    const API_BASE = 'http://localhost:3000/api';
+
+    // 保存所有数据到服务器
+    async function saveToServer() {
+      try {
+        // 保存主数据
+        await fetch(`${API_BASE}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: 'allData.json', content: state.allData })
+        });
+
+        // 保存收藏
+        await fetch(`${API_BASE}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: 'favorites.json', content: state.favorites })
+        });
+
+        // 保存备注
+        await fetch(`${API_BASE}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: 'notes.json', content: state.notes })
+        });
+
+        console.log('[自动保存] 数据已保存到服务器');
+      } catch (e) {
+        // 服务器未启动时静默失败，不影响正常使用
+        console.log('[自动保存] 服务器未连接，仅保存到 localStorage');
+      }
+    }
+
+    // 从服务器加载数据
+    async function loadFromServer() {
+      try {
+        // 加载主数据
+        const dataRes = await fetch(`${API_BASE}/load?filename=allData.json`);
+        if (dataRes.ok) {
+          const dataJson = await dataRes.json();
+          if (dataJson.success && dataJson.content) {
+            state.allData = dataJson.content;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.allData));
+          }
+        }
+
+        // 加载收藏
+        const favRes = await fetch(`${API_BASE}/load?filename=favorites.json`);
+        if (favRes.ok) {
+          const favJson = await favRes.json();
+          if (favJson.success && favJson.content) {
+            state.favorites = favJson.content;
+            localStorage.setItem('favorites', JSON.stringify(state.favorites));
+          }
+        }
+
+        // 加载备注
+        const notesRes = await fetch(`${API_BASE}/load?filename=notes.json`);
+        if (notesRes.ok) {
+          const notesJson = await notesRes.json();
+          if (notesJson.success && notesJson.content) {
+            state.notes = notesJson.content;
+            localStorage.setItem('notes', JSON.stringify(state.notes));
+          }
+        }
+
+        console.log('[启动] 从服务器加载数据成功');
+        return true;
+      } catch (e) {
+        console.log('[启动] 服务器未连接，使用 localStorage 数据');
+        return false;
+      }
+    }
+
+    // 保存收藏和备注（单独调用）
+    function saveFavoritesAndNotes() {
+      localStorage.setItem('favorites', JSON.stringify(state.favorites));
+      localStorage.setItem('notes', JSON.stringify(state.notes));
+      saveToServer();
     }
 
     // 更新月份列表
@@ -466,9 +808,86 @@
       state.currentPage = 1;
       updateMonthSelect();
       applyFiltersAndRender();
+      updateFavoritesButton();
+      updateNotesButton();
     }
 
     // ==================== 事件处理 ====================
+
+    // 暂存待处理的 JSON 数据（用于月份选择弹窗）
+    let pendingJsonData = null;
+
+    // 打开月份选择弹窗
+    function openMonthSelectModal(json) {
+      pendingJsonData = json;
+      const modal = document.getElementById('monthSelectModal');
+      const content = document.getElementById('monthSelectModalContent');
+      const yearSelect = document.getElementById('monthSelectYear');
+      const monthSelect = document.getElementById('monthSelectMonth');
+
+      // 生成年份选项（从 2020 到当前年份 + 1）
+      const currentYear = new Date().getFullYear();
+      yearSelect.innerHTML = '';
+      for (let y = currentYear + 1; y >= 2020; y--) {
+        const option = document.createElement('option');
+        option.value = y;
+        option.textContent = y;
+        yearSelect.appendChild(option);
+      }
+
+      // 默认选中：有数据 → 最新月份，无数据 → 当前系统月份
+      const months = Object.keys(state.allData).sort();
+      let defaultYear, defaultMonth;
+      if (months.length > 0) {
+        const latest = months[months.length - 1];  // 最新月份，如 "2025-11"
+        [defaultYear, defaultMonth] = latest.split('-');
+      } else {
+        const now = new Date();
+        defaultYear = now.getFullYear().toString();
+        defaultMonth = String(now.getMonth() + 1).padStart(2, '0');
+      }
+
+      yearSelect.value = defaultYear;
+      monthSelect.value = defaultMonth;
+
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        content.classList.remove('scale-95');
+      }, 10);
+    }
+
+    // 关闭月份选择弹窗
+    function closeMonthSelectModal() {
+      const modal = document.getElementById('monthSelectModal');
+      const content = document.getElementById('monthSelectModalContent');
+      modal.classList.add('opacity-0');
+      content.classList.add('scale-95');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 300);
+      pendingJsonData = null;
+    }
+
+    // 确认月份选择
+    function confirmMonthSelect() {
+      const yearSelect = document.getElementById('monthSelectYear');
+      const monthSelect = document.getElementById('monthSelectMonth');
+      const year = yearSelect.value;
+      const month = monthSelect.value;
+
+      if (!year || !month) {
+        showToast('请选择月份', 'error');
+        return;
+      }
+
+      const fullMonth = `${year}-${month}`;
+
+      if (pendingJsonData) {
+        processJsonDataWithMonth(pendingJsonData, fullMonth);
+        closeMonthSelectModal();
+      }
+    }
 
     // 处理 JSON 数据（共用逻辑）
     function processJsonData(json) {
@@ -481,17 +900,129 @@
       }
 
       const firstItem = json.data[0];
-      if (!firstItem.date) {
-        throw new Error('数据缺少 date 字段');
+
+      // 尝试从 date 字段提取月份（优先使用原始字段）
+      let month = null;
+      if (firstItem.date) {
+        month = extractMonth(firstItem.date);
       }
 
-      const month = extractMonth(firstItem.date);
+      // 如果没有月份，弹窗让用户选择
       if (!month) {
-        throw new Error('无法解析月份');
+        openMonthSelectModal(json);
+        return;
       }
 
-      state.allData[month] = json.data;
+      processJsonDataWithMonth(json, month);
+    }
+
+    // 使用指定月份处理 JSON 数据
+    function processJsonDataWithMonth(json, month) {
+      // 规范化数据格式：优先使用原字段，没有再从兼容字段提取
+      json.data = json.data.map(item => {
+        const normalized = { ...item };
+
+        // 从 traffic 对象提取数据（作为兜底）
+        const traffic = item.traffic || {};
+
+        // month_visited_count：顶层优先
+        if (normalized.month_visited_count === undefined) {
+          const trafficSum = (traffic.monthly_visits_direct || 0) +
+                             (traffic.monthly_visits_search || 0) +
+                             (traffic.monthly_visits_social || 0) +
+                             (traffic.monthly_visits_referrals || 0) +
+                             (traffic.monthly_visits_mail || 0);
+          normalized.month_visited_count = trafficSum || 0;
+        }
+
+        // growth：顶层优先 > traffic.growth
+        if (normalized.growth === undefined) {
+          normalized.growth = traffic.growth !== undefined ? traffic.growth : 0;
+        }
+
+        // growth_rate：顶层优先 > traffic.growth_rate
+        if (normalized.growth_rate === undefined) {
+          normalized.growth_rate = traffic.growth_rate !== undefined ? traffic.growth_rate : 0;
+        }
+
+        // tags：顶层优先 > 从 categories 提取 name
+        if (!normalized.tags || normalized.tags.length === 0) {
+          if (item.categories && Array.isArray(item.categories)) {
+            normalized.tags = item.categories.map(cat => cat.name).slice(0, 6);
+          } else {
+            normalized.tags = [];
+          }
+        }
+
+        // description：顶层优先 > what_is_summary
+        if (!normalized.description) {
+          normalized.description = item.what_is_summary || '';
+        }
+
+        return normalized;
+      });
+
+      // 合并并去重数据（按 handle 去重，新数据优先）
+      const existingData = state.allData[month] || [];
+      const existingMap = new Map();
+
+      // 先加入已有数据
+      existingData.forEach(item => {
+        if (item.handle) {
+          existingMap.set(item.handle, item);
+        }
+      });
+
+      // 新数据覆盖已有数据（按 handle）
+      let newCount = 0;
+      let updateCount = 0;
+      json.data.forEach(item => {
+        if (item.handle) {
+          if (existingMap.has(item.handle)) {
+            updateCount++;
+          } else {
+            newCount++;
+          }
+          existingMap.set(item.handle, item);
+        }
+      });
+
+      // 转换回数组
+      state.allData[month] = Array.from(existingMap.values());
       state.currentMonth = month;
+
+      // 处理 favorites 字段（如果存在则合并到该月份）
+      if (json.favorites && Array.isArray(json.favorites)) {
+        if (!state.favorites[month]) {
+          state.favorites[month] = [];
+        }
+        const existing = state.favorites[month];
+        const newFavorites = [...new Set([...existing, ...json.favorites])];
+        const addedCount = newFavorites.length - existing.length;
+        state.favorites[month] = newFavorites;
+        if (addedCount > 0) {
+          showToast(`同时导入了 ${addedCount} 个收藏`);
+        }
+      }
+
+      // 处理 notes 字段（全局合并，新备注覆盖旧备注）
+      if (json.notes && typeof json.notes === 'object') {
+        let notesAddedCount = 0;
+        Object.entries(json.notes).forEach(([handle, note]) => {
+          if (note && !state.notes[handle]) {
+            notesAddedCount++;
+          }
+          if (note) {
+            state.notes[handle] = note;
+          }
+        });
+        if (notesAddedCount > 0) {
+          showToast(`同时导入了 ${notesAddedCount} 个备注`);
+        }
+      }
+
+      // 保存收藏和备注到服务器
+      saveFavoritesAndNotes();
 
       saveToStorage();
       updateMonthSelect();
@@ -499,8 +1030,16 @@
 
       resetFiltersAndSort();
       applyFiltersAndRender();
+      updateFavoritesButton();
+      updateNotesButton();
 
-      showToast(`成功导入 ${month} 的 ${json.data.length} 条数据`);
+      // 显示合并结果（需要手动关闭）
+      const totalCount = state.allData[month].length;
+      if (existingData.length === 0) {
+        showToast(`成功导入 ${month} 的 ${json.data.length} 条数据`, 'success', true);
+      } else {
+        showToast(`${month}: 新增 ${newCount} 条，更新 ${updateCount} 条，共 ${totalCount} 条`, 'success', true);
+      }
     }
 
     // 尝试修复并解析 JSON
@@ -567,8 +1106,142 @@
         }
       }
 
+      // 5. 兜底方案：用正则提取关键字段
+      const extractedData = extractDataFromText(content);
+      if (extractedData.length > 0) {
+        return { data: extractedData };
+      }
+
       // 所有修复尝试失败，抛出原始错误
       throw new Error('JSON 格式无法解析，请检查格式是否正确');
+    }
+
+    // 从文本中提取关键字段（兜底方案）
+    function extractDataFromText(text) {
+      const items = [];
+
+      // 提取字符串值的辅助函数
+      const extractString = (text, key) => {
+        // 匹配 "key": "value" 或 "key": 'value'
+        const regex = new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`, 'i');
+        const match = text.match(regex);
+        return match ? match[1] : null;
+      };
+
+      // 提取数字值的辅助函数
+      const extractNumber = (text, key) => {
+        const regex = new RegExp(`"${key}"\\s*:\\s*(-?[\\d.]+)`, 'i');
+        const match = text.match(regex);
+        return match ? parseFloat(match[1]) : null;
+      };
+
+      // 提取数组值的辅助函数（简单字符串数组）
+      const extractStringArray = (text, key) => {
+        const regex = new RegExp(`"${key}"\\s*:\\s*\\[([^\\]]*?)\\]`, 'i');
+        const match = text.match(regex);
+        if (!match) return [];
+        // 提取数组中的字符串
+        const arrayContent = match[1];
+        const strRegex = /"([^"]*)"/g;
+        const result = [];
+        let strMatch;
+        while ((strMatch = strRegex.exec(arrayContent)) !== null) {
+          result.push(strMatch[1]);
+        }
+        return result;
+      };
+
+      // 使用平衡括号匹配提取每个对象
+      // 查找所有包含 "handle": 的对象块
+      let depth = 0;
+      let start = -1;
+      let inString = false;
+      let prevChar = '';
+
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+
+        // 处理字符串内部
+        if (char === '"' && prevChar !== '\\') {
+          inString = !inString;
+        }
+
+        if (!inString) {
+          if (char === '{') {
+            if (depth === 0) {
+              start = i;
+            }
+            depth++;
+          } else if (char === '}') {
+            depth--;
+            if (depth === 0 && start !== -1) {
+              // 找到一个完整的对象
+              const objText = text.substring(start, i + 1);
+
+              // 检查是否包含关键字段 handle
+              if (objText.includes('"handle"')) {
+                const handle = extractString(objText, 'handle');
+                const name = extractString(objText, 'name');
+
+                // 必须有 handle 和 name
+                if (handle && name) {
+                  const item = {
+                    handle,
+                    name,
+                    description: extractString(objText, 'description') || extractString(objText, 'what_is_summary') || '',
+                    month_visited_count: extractNumber(objText, 'month_visited_count') || 0,
+                    growth: extractNumber(objText, 'growth') || 0,
+                    growth_rate: extractNumber(objText, 'growth_rate') || 0,
+                    tags: extractStringArray(objText, 'tags'),
+                    date: extractString(objText, 'date') || ''  // 只匹配 date 字段，没有则让用户选择
+                  };
+
+                  // 如果 tags 为空，尝试从 categories 提取
+                  if (item.tags.length === 0) {
+                    // 简单提取 categories 中的 name
+                    const catRegex = /"categories"\s*:\s*\[([\s\S]*?)\]/;
+                    const catMatch = objText.match(catRegex);
+                    if (catMatch) {
+                      const catNameRegex = /"name"\s*:\s*"([^"]*)"/g;
+                      let catNameMatch;
+                      while ((catNameMatch = catNameRegex.exec(catMatch[1])) !== null) {
+                        // 排除 "Features", "Pricing" 等非分类名
+                        if (!['Features', 'Pricing', 'Website', 'Free', 'Freemium'].includes(catNameMatch[1])) {
+                          item.tags.push(catNameMatch[1]);
+                        }
+                      }
+                      item.tags = item.tags.slice(0, 6);
+                    }
+                  }
+
+                  // 尝试从 traffic 对象提取 growth 和 growth_rate
+                  if (item.growth === 0 || item.growth_rate === 0) {
+                    const trafficRegex = /"traffic"\s*:\s*\{([\s\S]*?)\}/;
+                    const trafficMatch = objText.match(trafficRegex);
+                    if (trafficMatch) {
+                      const trafficText = trafficMatch[1];
+                      if (item.growth === 0) {
+                        const tGrowth = extractNumber(trafficText, 'growth');
+                        if (tGrowth !== null) item.growth = tGrowth;
+                      }
+                      if (item.growth_rate === 0) {
+                        const tRate = extractNumber(trafficText, 'growth_rate');
+                        if (tRate !== null) item.growth_rate = tRate;
+                      }
+                    }
+                  }
+
+                  items.push(item);
+                }
+              }
+              start = -1;
+            }
+          }
+        }
+        prevChar = char;
+      }
+
+      return items;
     }
 
     // 上传 JSON 文件
@@ -632,6 +1305,74 @@
       }
     }
 
+    // 当前编辑的备注 handle
+    let currentNoteHandle = '';
+
+    // 打开备注弹窗
+    function openNoteModal(handle, name) {
+      currentNoteHandle = handle;
+      const modal = document.getElementById('noteModal');
+      const content = document.getElementById('noteModalContent');
+      const noteInput = document.getElementById('noteInput');
+      const deleteBtn = document.getElementById('deleteNoteBtn');
+      const nameEl = document.getElementById('noteModalName');
+
+      nameEl.textContent = name;
+      noteInput.value = state.notes[handle] || '';
+
+      // 显示/隐藏删除按钮
+      if (state.notes[handle]) {
+        deleteBtn.classList.remove('hidden');
+      } else {
+        deleteBtn.classList.add('hidden');
+      }
+
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        content.classList.remove('scale-95');
+        noteInput.focus();
+      }, 10);
+    }
+
+    // 关闭备注弹窗
+    function closeNoteModal() {
+      const modal = document.getElementById('noteModal');
+      const content = document.getElementById('noteModalContent');
+      modal.classList.add('opacity-0');
+      content.classList.add('scale-95');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 300);
+      currentNoteHandle = '';
+    }
+
+    // 保存备注
+    function saveNote() {
+      const noteInput = document.getElementById('noteInput');
+      const note = noteInput.value.trim();
+
+      if (note) {
+        state.notes[currentNoteHandle] = note;
+      } else {
+        delete state.notes[currentNoteHandle];
+      }
+
+      saveFavoritesAndNotes();
+      closeNoteModal();
+      renderTable();
+      showToast(note ? '备注已保存' : '备注已清空');
+    }
+
+    // 删除备注
+    function deleteNote() {
+      delete state.notes[currentNoteHandle];
+      saveFavoritesAndNotes();
+      closeNoteModal();
+      renderTable();
+      showToast('备注已删除');
+    }
+
     // 下载 JSON 文件
     function handleDownload() {
       if (!state.currentMonth || !state.allData[state.currentMonth]) {
@@ -639,7 +1380,12 @@
         return;
       }
 
-      const data = { data: state.allData[state.currentMonth] };
+      // 包含 data、当前月份的 favorites、以及全局 notes
+      const data = {
+        data: state.allData[state.currentMonth],
+        favorites: getCurrentMonthFavorites(),
+        notes: state.notes
+      };
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
 
@@ -652,6 +1398,173 @@
       showToast('下载成功');
     }
 
+    // 清空当前月份数据
+    function handleClearCurrentMonth() {
+      if (!state.currentMonth || !state.allData[state.currentMonth]) {
+        showToast('没有可清空的数据');
+        return;
+      }
+
+      if (!confirm(`确定要清空 ${state.currentMonth} 的数据吗？此操作不可恢复。`)) {
+        return;
+      }
+
+      const monthToDelete = state.currentMonth;
+
+      // 删除当前月份数据
+      delete state.allData[monthToDelete];
+
+      // 迁移当前月份的收藏到其他月份
+      const favoritesToMigrate = state.favorites[monthToDelete] || [];
+      delete state.favorites[monthToDelete];
+
+      if (favoritesToMigrate.length > 0) {
+        // 找到其他存在的月份（优先最近的）
+        const otherMonths = Object.keys(state.allData).sort().reverse();
+        if (otherMonths.length > 0) {
+          const targetMonth = otherMonths[0];
+          if (!state.favorites[targetMonth]) {
+            state.favorites[targetMonth] = [];
+          }
+          // 合并收藏（去重）
+          const merged = [...new Set([...state.favorites[targetMonth], ...favoritesToMigrate])];
+          state.favorites[targetMonth] = merged;
+        }
+        // 如果没有其他月份，收藏会丢失
+      }
+
+      saveFavoritesAndNotes();
+
+      // 切换到其他月份或清空
+      const months = Object.keys(state.allData).sort().reverse();
+      state.currentMonth = months[0] || '';
+
+      saveToStorage();
+      updateMonthSelect();
+      updateHeaderStats();
+      resetFiltersAndSort();
+      applyFiltersAndRender();
+      updateFavoritesButton();
+      updateNotesButton();
+
+      showToast(`已清空 ${monthToDelete} 的数据`);
+    }
+
+    // ==================== 翻译功能 ====================
+
+    // 使用 Google Translate 免费接口翻译
+    async function translateText(text) {
+      if (!text || text.trim() === '') return text;
+
+      // 检查缓存
+      if (state.translations[text]) {
+        return state.translations[text];
+      }
+
+      try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-CN&dt=t&q=${encodeURIComponent(text)}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        // 解析返回结果
+        let translated = '';
+        if (data && data[0]) {
+          data[0].forEach(item => {
+            if (item[0]) translated += item[0];
+          });
+        }
+
+        // 缓存翻译结果
+        if (translated) {
+          state.translations[text] = translated;
+        }
+
+        return translated || text;
+      } catch (error) {
+        console.error('翻译失败:', error);
+        return text;
+      }
+    }
+
+    // 批量翻译
+    async function translateBatch(texts) {
+      const results = {};
+      const uniqueTexts = [...new Set(texts.filter(t => t && t.trim()))];
+
+      // 分批翻译，避免请求过多
+      const batchSize = 10;
+      for (let i = 0; i < uniqueTexts.length; i += batchSize) {
+        const batch = uniqueTexts.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (text) => {
+          results[text] = await translateText(text);
+        }));
+
+        // 添加小延迟避免被限流
+        if (i + batchSize < uniqueTexts.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      return results;
+    }
+
+    // 一键翻译处理
+    async function handleTranslate() {
+      const btn = document.getElementById('translateBtn');
+      const currentData = state.allData[state.currentMonth] || [];
+
+      if (currentData.length === 0) {
+        showToast('没有可翻译的数据');
+        return;
+      }
+
+      // 如果已翻译，切换回原文
+      if (state.isTranslated) {
+        state.isTranslated = false;
+        btn.innerHTML = '<i class="fas fa-language mr-2"></i><span class="font-medium">一键翻译</span>';
+        btn.className = 'inline-flex items-center px-5 py-2.5 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 transition-all hover:scale-105 border border-green-200';
+        renderTable();
+        showToast('已切换回原文');
+        return;
+      }
+
+      // 开始翻译
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i><span class="font-medium">翻译中...</span>';
+      btn.disabled = true;
+
+      try {
+        // 收集所有需要翻译的文本
+        const textsToTranslate = [];
+        currentData.forEach(item => {
+          if (item.description) textsToTranslate.push(item.description);
+          if (item.tags && Array.isArray(item.tags)) {
+            item.tags.forEach(tag => textsToTranslate.push(tag));
+          }
+        });
+
+        // 批量翻译
+        await translateBatch(textsToTranslate);
+
+        state.isTranslated = true;
+        btn.innerHTML = '<i class="fas fa-language mr-2"></i><span class="font-medium">显示原文</span>';
+        btn.className = 'inline-flex items-center px-5 py-2.5 bg-green-100 text-green-800 rounded-xl hover:bg-green-200 transition-all hover:scale-105 border border-green-300';
+
+        renderTable();
+        showToast('翻译完成');
+      } catch (error) {
+        showToast('翻译失败，请重试');
+        btn.innerHTML = '<i class="fas fa-language mr-2"></i><span class="font-medium">一键翻译</span>';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // 获取翻译后的文本
+    function getTranslatedText(text) {
+      if (!state.isTranslated || !text) return text;
+      return state.translations[text] || text;
+    }
+
     // 搜索
     function handleSearch() {
       state.searchKeyword = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -661,32 +1574,43 @@
 
     // 筛选
     function handleFilter() {
+      const consecutiveChangeVal = document.getElementById('consecutiveChange').value;
+      const consecutiveGrowthVal = document.getElementById('consecutiveGrowth').value;
+
       state.filters = {
         visitMin: parseValueInput(document.getElementById('visitMin').value),
         visitMax: parseValueInput(document.getElementById('visitMax').value),
         growthMin: parseValueInput(document.getElementById('growthMin').value),
         growthMax: parseValueInput(document.getElementById('growthMax').value),
         rateMin: parseValueInput(document.getElementById('rateMin').value),
-        rateMax: parseValueInput(document.getElementById('rateMax').value)
+        rateMax: parseValueInput(document.getElementById('rateMax').value),
+        changeMin: parseChangeInput(document.getElementById('changeMin').value),
+        changeMax: parseChangeInput(document.getElementById('changeMax').value),
+        includeNew: document.getElementById('includeNew').checked,
+        consecutiveChange: consecutiveChangeVal ? parseInt(consecutiveChangeVal) : null,
+        consecutiveGrowth: consecutiveGrowthVal ? parseInt(consecutiveGrowthVal) : null
       };
       state.currentPage = 1;
       applyFiltersAndRender();
     }
 
+    // 解析 Change 输入（支持 +5, -3, 0 格式）
+    function parseChangeInput(value) {
+      if (!value || value.trim() === '') return null;
+      const num = parseInt(value.trim(), 10);
+      return isNaN(num) ? null : num;
+    }
+
     // 排序
-    function handleSort(field) {
-      if (state.sortField === field) {
-        if (state.sortOrder === 'asc') {
-          state.sortOrder = 'desc';
-        } else if (state.sortOrder === 'desc') {
-          state.sortField = null;
-          state.sortOrder = null;
-        } else {
-          state.sortOrder = 'asc';
-        }
+    function handleSort(field, direction) {
+      // 如果点击的是已激活的排序（同字段同方向），则取消排序
+      if (state.sortField === field && state.sortOrder === direction) {
+        state.sortField = null;
+        state.sortOrder = null;
       } else {
+        // 否则设置为指定的字段和方向
         state.sortField = field;
-        state.sortOrder = 'asc';
+        state.sortOrder = direction;
       }
 
       applyFiltersAndRender();
@@ -695,18 +1619,28 @@
 
     // 更新排序图标
     function updateSortIcons() {
-      const fields = ['month_visited_count', 'growth', 'growth_rate'];
+      const fields = ['name', 'month_visited_count', 'growth', 'growth_rate', 'rank_change'];
 
       fields.forEach(field => {
-        const icon = document.getElementById(`sort-${field}`);
+        const container = document.getElementById(`sort-${field}`);
+        if (!container) return;
+
+        const upArrow = container.querySelector('.fa-caret-up');
+        const downArrow = container.querySelector('.fa-caret-down');
+
+        if (!upArrow || !downArrow) return;
+
+        // 重置为默认样式
+        upArrow.classList.remove('active');
+        downArrow.classList.remove('active');
+
+        // 如果当前字段被选中，高亮对应的箭头
         if (state.sortField === field) {
           if (state.sortOrder === 'asc') {
-            icon.innerHTML = '<i class="fas fa-sort-up text-blue-600"></i>';
-          } else {
-            icon.innerHTML = '<i class="fas fa-sort-down text-blue-600"></i>';
+            upArrow.classList.add('active');
+          } else if (state.sortOrder === 'desc') {
+            downArrow.classList.add('active');
           }
-        } else {
-          icon.innerHTML = '<i class="fas fa-sort"></i>';
         }
       });
     }
@@ -732,6 +1666,11 @@
       document.getElementById('growthMax').value = '';
       document.getElementById('rateMin').value = '';
       document.getElementById('rateMax').value = '';
+      document.getElementById('changeMin').value = '';
+      document.getElementById('changeMax').value = '';
+      document.getElementById('includeNew').checked = false;
+      document.getElementById('consecutiveChange').value = '';
+      document.getElementById('consecutiveGrowth').value = '';
 
       resetFiltersAndSort();
       applyFiltersAndRender();
@@ -741,18 +1680,513 @@
     // 重置筛选和排序状态
     function resetFiltersAndSort() {
       state.searchKeyword = '';
-      state.sortField = null;
-      state.sortOrder = null;
+      state.sortField = 'growth';
+      state.sortOrder = 'desc';
       state.currentPage = 1;
+      state.showFavoritesOnly = false;
       state.filters = {
         visitMin: null,
         visitMax: null,
         growthMin: null,
         growthMax: null,
         rateMin: null,
-        rateMax: null
+        rateMax: null,
+        changeMin: null,
+        changeMax: null,
+        includeNew: false,
+        consecutiveChange: null,
+        consecutiveGrowth: null
       };
+      state.showNotesOnly = false;
       updateSortIcons();
+      updateFavoritesButton();
+      updateNotesButton();
+    }
+
+    // ==================== 趋势功能 ====================
+
+    // 获取网站最近 N 个月的历史数据
+    function getHistoryData(handle, maxMonths = 4) {
+      const months = Object.keys(state.allData).sort().reverse();  // 最新的在前
+      const history = [];
+
+      for (let i = 0; i < Math.min(months.length, maxMonths); i++) {
+        const month = months[i];
+        const data = state.allData[month] || [];
+        const item = data.find(d => d.handle === handle);
+
+        if (item) {
+          // 计算该月的 Change（排名变化）
+          const rankChangeMap = getRankChangeMapForMonth(month);
+          const change = rankChangeMap[handle] || { type: 'new', value: 0 };
+          let changeValue = 0;
+          if (change.type === 'up') changeValue = change.value;
+          else if (change.type === 'down') changeValue = -change.value;
+          else if (change.type === 'new') changeValue = null;
+
+          history.push({
+            month,
+            monthLabel: month.split('-')[1],  // 只取月份数字
+            growth: item.growth || 0,
+            change: changeValue
+          });
+        }
+      }
+
+      return history.reverse();  // 返回时间正序（旧的在前）
+    }
+
+    // 获取指定月份的排名变化 Map
+    function getRankChangeMapForMonth(targetMonth) {
+      const months = Object.keys(state.allData).sort();
+      const currentIndex = months.indexOf(targetMonth);
+      const previousMonth = currentIndex > 0 ? months[currentIndex - 1] : null;
+
+      const currentData = state.allData[targetMonth] || [];
+      const currentRanks = {};
+      [...currentData].sort((a, b) => b.growth - a.growth).forEach((item, index) => {
+        currentRanks[item.handle] = index + 1;
+      });
+
+      if (!previousMonth || !state.allData[previousMonth]) {
+        const result = {};
+        currentData.forEach(item => {
+          result[item.handle] = { type: 'new' };
+        });
+        return result;
+      }
+
+      const previousData = state.allData[previousMonth];
+      const previousRanks = {};
+      [...previousData].sort((a, b) => b.growth - a.growth).forEach((item, index) => {
+        previousRanks[item.handle] = index + 1;
+      });
+
+      const result = {};
+      currentData.forEach(item => {
+        const currentRank = currentRanks[item.handle];
+        const previousRank = previousRanks[item.handle];
+
+        if (!previousRank) {
+          result[item.handle] = { type: 'new' };
+        } else if (previousRank > currentRank) {
+          result[item.handle] = { type: 'up', value: previousRank - currentRank };
+        } else if (previousRank < currentRank) {
+          result[item.handle] = { type: 'down', value: currentRank - previousRank };
+        } else {
+          result[item.handle] = { type: 'same', value: 0 };
+        }
+      });
+
+      return result;
+    }
+
+    // 检查连续排名上升（Change > 0）
+    function checkConsecutiveChange(handle, months) {
+      const history = getHistoryData(handle, parseInt(months));
+
+      // 数据不足，返回 false
+      if (history.length < parseInt(months)) return false;
+
+      // 检查所有月份的 change 是否都 > 0（排名上升）
+      return history.every(h => h.change !== null && h.change > 0);
+    }
+
+    // 检查连续增长（Growth > 0）
+    function checkConsecutiveGrowth(handle, months) {
+      const history = getHistoryData(handle, parseInt(months));
+
+      // 数据不足，返回 false
+      if (history.length < parseInt(months)) return false;
+
+      // 检查所有月份的 growth 是否都 > 0
+      return history.every(h => h.growth > 0);
+    }
+
+    // 生成迷你折线图 SVG
+    function generateSparklineSVG(data, color, width = 80, height = 30) {
+      if (!data || data.length === 0) return '';
+
+      const values = data.map(d => d.value);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const range = max - min || 1;
+
+      const padding = 4;
+      const chartWidth = width - padding * 2;
+      const chartHeight = height - padding * 2;
+
+      const points = values.map((v, i) => {
+        const x = padding + (i / (values.length - 1 || 1)) * chartWidth;
+        const y = padding + chartHeight - ((v - min) / range) * chartHeight;
+        return `${x},${y}`;
+      }).join(' ');
+
+      // 绘制圆点
+      const dots = values.map((v, i) => {
+        const x = padding + (i / (values.length - 1 || 1)) * chartWidth;
+        const y = padding + chartHeight - ((v - min) / range) * chartHeight;
+        return `<circle cx="${x}" cy="${y}" r="2.5" fill="${color}" />`;
+      }).join('');
+
+      return `
+        <svg width="${width}" height="${height}" class="inline-block">
+          <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          ${dots}
+        </svg>
+      `;
+    }
+
+    // 生成趋势提示框 HTML
+    function generateTrendTooltip(handle) {
+      const history = getHistoryData(handle, 4);
+
+      if (history.length === 0) {
+        return '<div class="text-gray-400 text-xs">暂无历史数据</div>';
+      }
+
+      // Growth 数据
+      const growthData = history.map(h => ({ label: h.monthLabel, value: h.growth }));
+      const growthSVG = generateSparklineSVG(growthData, '#10b981', 90, 35);
+
+      // Change 数据（排除 null）
+      const changeData = history.filter(h => h.change !== null).map(h => ({ label: h.monthLabel, value: h.change }));
+      const changeSVG = changeData.length > 0 ? generateSparklineSVG(changeData, '#3b82f6', 90, 35) : '<div class="text-gray-400 text-xs h-[35px] flex items-center">数据不足</div>';
+
+      // 格式化数值显示
+      const formatGrowthValue = (v) => {
+        if (Math.abs(v) >= 1000000) return (v / 1000000).toFixed(1) + 'M';
+        if (Math.abs(v) >= 1000) return (v / 1000).toFixed(0) + 'K';
+        return v.toString();
+      };
+
+      const growthLabels = history.map(h => `<span class="text-[10px] ${h.growth >= 0 ? 'text-green-600' : 'text-red-500'}">${formatGrowthValue(h.growth)}</span>`).join('');
+      const changeLabels = history.map(h => {
+        if (h.change === null) return '<span class="text-[10px] text-blue-500">NEW</span>';
+        return `<span class="text-[10px] ${h.change >= 0 ? 'text-green-600' : 'text-red-500'}">${h.change >= 0 ? '+' : ''}${h.change}</span>`;
+      }).join('');
+      const monthLabels = history.map(h => `<span class="text-[10px] text-gray-400">${h.monthLabel}月</span>`).join('');
+
+      return `
+        <div class="flex gap-4">
+          <div class="flex flex-col items-center">
+            <div class="text-[10px] text-gray-500 mb-1 font-medium">Growth</div>
+            ${growthSVG}
+            <div class="flex justify-between w-full mt-1 gap-1">${growthLabels}</div>
+          </div>
+          <div class="flex flex-col items-center">
+            <div class="text-[10px] text-gray-500 mb-1 font-medium">Change</div>
+            ${changeSVG}
+            <div class="flex justify-between w-full mt-1 gap-1">${changeLabels}</div>
+          </div>
+        </div>
+        <div class="flex justify-around mt-2 border-t border-gray-100 pt-1">${monthLabels}</div>
+      `;
+    }
+
+    // 生成展开行的大折线图 SVG（带坐标轴）
+    function generateLargeSparklineSVG(data, color, title, formatFn, width = 200, height = 80) {
+      if (!data || data.length === 0) {
+        return `
+          <div class="flex flex-col items-center justify-center" style="width: ${width}px; height: ${height + 30}px;">
+            <div class="text-xs font-medium text-gray-500 mb-2">${title}</div>
+            <div class="text-gray-400 text-xs">暂无数据</div>
+          </div>
+        `;
+      }
+
+      const values = data.map(d => d.value);
+      const labels = data.map(d => d.label);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const range = max - min || 1;
+
+      // 增加顶部 padding 以容纳数值标签
+      const padding = { top: 20, right: 16, bottom: 22, left: 16 };
+      const chartWidth = width - padding.left - padding.right;
+      const chartHeight = height - padding.top - padding.bottom;
+
+      // 生成折线路径
+      const points = values.map((v, i) => {
+        const x = padding.left + (i / (values.length - 1 || 1)) * chartWidth;
+        const y = padding.top + chartHeight - ((v - min) / range) * chartHeight;
+        return `${x},${y}`;
+      }).join(' ');
+
+      // 生成圆点和数值标签
+      const dotsAndLabels = values.map((v, i) => {
+        const x = padding.left + (i / (values.length - 1 || 1)) * chartWidth;
+        const y = padding.top + chartHeight - ((v - min) / range) * chartHeight;
+        const labelColor = v >= 0 ? '#059669' : '#dc2626';
+        return `
+          <circle cx="${x}" cy="${y}" r="3" fill="${color}" />
+          <text x="${x}" y="${y - 10}" text-anchor="middle" fill="${labelColor}" font-size="10" font-weight="500">${formatFn(v)}</text>
+        `;
+      }).join('');
+
+      // 生成 X 轴月份标签
+      const xLabels = labels.map((label, i) => {
+        const x = padding.left + (i / (labels.length - 1 || 1)) * chartWidth;
+        return `<text x="${x}" y="${height - 6}" text-anchor="middle" fill="#9ca3af" font-size="10">${label}月</text>`;
+      }).join('');
+
+      return `
+        <div class="flex flex-col items-center">
+          <div class="text-xs font-medium text-gray-500 mb-1">${title}</div>
+          <svg width="${width}" height="${height}" class="inline-block overflow-visible">
+            <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            ${dotsAndLabels}
+            ${xLabels}
+          </svg>
+        </div>
+      `;
+    }
+
+    // 生成趋势展开行的 HTML
+    function generateTrendRow(handle, colSpan) {
+      const history = getHistoryData(handle, 4);
+
+      if (history.length === 0) {
+        return `
+          <tr class="bg-gradient-to-r from-gray-50/50 to-indigo-50/30">
+            <td colspan="${colSpan}" class="px-5 py-3">
+              <div class="flex items-center justify-center text-gray-400 text-sm">
+                <i class="fas fa-chart-line mr-2"></i>
+                暂无历史趋势数据
+              </div>
+            </td>
+          </tr>
+        `;
+      }
+
+      // Growth 数据
+      const growthData = history.map(h => ({ label: h.monthLabel, value: h.growth }));
+      const formatGrowthValue = (v) => {
+        if (Math.abs(v) >= 1000000) return (v / 1000000).toFixed(1) + 'M';
+        if (Math.abs(v) >= 1000) return (v / 1000).toFixed(0) + 'K';
+        return v.toString();
+      };
+      const growthSVG = generateLargeSparklineSVG(growthData, '#10b981', 'Growth 趋势', formatGrowthValue, 220, 85);
+
+      // Change 数据
+      const changeData = history.filter(h => h.change !== null).map(h => ({ label: h.monthLabel, value: h.change }));
+      const formatChangeValue = (v) => (v >= 0 ? '+' : '') + v;
+      const changeSVG = changeData.length > 0
+        ? generateLargeSparklineSVG(changeData, '#3b82f6', 'Change 趋势', formatChangeValue, 220, 85)
+        : `<div class="flex flex-col items-center justify-center" style="width: 220px; height: 115px;">
+            <div class="text-xs font-medium text-gray-500 mb-2">Change 趋势</div>
+            <div class="text-gray-400 text-xs">数据不足</div>
+          </div>`;
+
+      return `
+        <tr class="bg-gradient-to-r from-gray-50/50 to-indigo-50/30 border-b border-gray-100">
+          <td colspan="${colSpan}" class="px-5 py-3">
+            <div class="flex items-center justify-start gap-8 pl-8">
+              ${growthSVG}
+              ${changeSVG}
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    // ==================== 收藏功能 ====================
+
+    // 获取当前月份的收藏列表（仅当前月份存储的）
+    function getCurrentMonthFavorites() {
+      if (!state.currentMonth) return [];
+      return state.favorites[state.currentMonth] || [];
+    }
+
+    // 获取所有收藏的 handle（跨月份合并，用于显示）
+    function getAllFavorites() {
+      const all = new Set();
+      Object.values(state.favorites).forEach(list => {
+        if (Array.isArray(list)) {
+          list.forEach(handle => all.add(handle));
+        }
+      });
+      return [...all];
+    }
+
+    // 获取当前月份显示的收藏（继承所有月份）
+    function getDisplayFavorites() {
+      return getAllFavorites();
+    }
+
+    // 切换收藏状态（存储到当前月份）
+    function toggleFavorite(handle) {
+      if (!state.currentMonth) return;
+
+      // 检查是否在任意月份已收藏
+      const isCurrentlyFavorite = isFavorite(handle);
+
+      if (isCurrentlyFavorite) {
+        // 取消收藏：从所有月份中移除
+        Object.keys(state.favorites).forEach(month => {
+          const list = state.favorites[month];
+          if (Array.isArray(list)) {
+            const index = list.indexOf(handle);
+            if (index !== -1) {
+              list.splice(index, 1);
+            }
+          }
+        });
+      } else {
+        // 添加收藏：存储到当前月份
+        if (!state.favorites[state.currentMonth]) {
+          state.favorites[state.currentMonth] = [];
+        }
+        state.favorites[state.currentMonth].push(handle);
+      }
+
+      saveFavoritesAndNotes();
+      renderTable();
+      updateFavoritesButton();
+    }
+
+    // 检查是否已收藏（跨月份检查）
+    function isFavorite(handle) {
+      return getAllFavorites().includes(handle);
+    }
+
+    // 切换只看收藏
+    function toggleShowFavoritesOnly() {
+      state.showFavoritesOnly = !state.showFavoritesOnly;
+      state.currentPage = 1;
+      applyFiltersAndRender();
+      updateFavoritesButton();
+    }
+
+    // 切换只显示有备注的
+    function toggleShowNotesOnly() {
+      state.showNotesOnly = !state.showNotesOnly;
+      state.currentPage = 1;
+      applyFiltersAndRender();
+      updateNotesButton();
+    }
+
+    // 切换趋势视图
+    function toggleTrendView() {
+      state.showTrendView = !state.showTrendView;
+      localStorage.setItem('showTrendView', state.showTrendView);
+      updateTrendViewButton();
+      renderTable();
+    }
+
+    // 更新趋势视图按钮状态
+    function updateTrendViewButton() {
+      const btn = document.getElementById('trendViewBtn');
+      if (!btn) return;
+
+      if (state.showTrendView) {
+        btn.className = 'inline-flex items-center px-4 py-3 text-indigo-600 bg-indigo-50 rounded-xl transition-all border border-indigo-200';
+        btn.title = '收起趋势视图';
+      } else {
+        btn.className = 'inline-flex items-center px-4 py-3 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-gray-200';
+        btn.title = '展开趋势视图';
+      }
+    }
+
+    // 获取当前页面可见的备注数
+    function getVisibleNotesCount() {
+      const sourceData = state.allData[state.currentMonth] || [];
+      return sourceData.filter(item => state.notes[item.handle]).length;
+    }
+
+    // 更新备注按钮状态
+    function updateNotesButton() {
+      const btn = document.getElementById('notesFilterBtn');
+      if (!btn) return;
+      const count = getVisibleNotesCount();
+      if (state.showNotesOnly) {
+        btn.className = 'inline-flex items-center px-4 py-3 bg-yellow-100 text-yellow-700 rounded-xl transition-all border border-yellow-300';
+        btn.innerHTML = `<i class="fas fa-sticky-note mr-2"></i><span>备注 (${count})</span>`;
+      } else {
+        btn.className = 'inline-flex items-center px-4 py-3 text-gray-600 hover:text-yellow-600 hover:bg-yellow-50 rounded-xl transition-all border border-gray-200';
+        btn.innerHTML = `<i class="far fa-sticky-note mr-2"></i><span>备注 (${count})</span>`;
+      }
+    }
+
+    // 获取当前页面可见的收藏数（当前月份数据中有多少个被收藏）
+    function getVisibleFavoritesCount() {
+      const sourceData = state.allData[state.currentMonth] || [];
+      const allFavs = getAllFavorites();
+      return sourceData.filter(item => allFavs.includes(item.handle)).length;
+    }
+
+    // 获取上一个月份
+    function getPreviousMonth(currentMonth) {
+      const months = Object.keys(state.allData).sort();
+      const currentIndex = months.indexOf(currentMonth);
+      if (currentIndex <= 0) return null;
+      return months[currentIndex - 1];
+    }
+
+    // 计算排名变化（基于 growth 降序排名）
+    function getRankChangeMap() {
+      const currentMonth = state.currentMonth;
+      const previousMonth = getPreviousMonth(currentMonth);
+
+      // 当前月份按 growth 降序排名
+      const currentData = state.allData[currentMonth] || [];
+      const currentRanks = {};
+      [...currentData].sort((a, b) => b.growth - a.growth).forEach((item, index) => {
+        currentRanks[item.handle] = index + 1;
+      });
+
+      // 无上月数据，全部返回 NEW
+      if (!previousMonth || !state.allData[previousMonth]) {
+        const result = {};
+        currentData.forEach(item => {
+          result[item.handle] = { type: 'new' };
+        });
+        return result;
+      }
+
+      // 上月按 growth 降序排名
+      const previousData = state.allData[previousMonth];
+      const previousRanks = {};
+      [...previousData].sort((a, b) => b.growth - a.growth).forEach((item, index) => {
+        previousRanks[item.handle] = index + 1;
+      });
+
+      // 计算变化
+      const result = {};
+      currentData.forEach(item => {
+        const currentRank = currentRanks[item.handle];
+        const previousRank = previousRanks[item.handle];
+
+        if (previousRank === undefined) {
+          // 新上榜
+          result[item.handle] = { type: 'new' };
+        } else {
+          const change = previousRank - currentRank; // 正数表示上升
+          if (change > 0) {
+            result[item.handle] = { type: 'up', value: change };
+          } else if (change < 0) {
+            result[item.handle] = { type: 'down', value: Math.abs(change) };
+          } else {
+            result[item.handle] = { type: 'same' };
+          }
+        }
+      });
+
+      return result;
+    }
+
+    // 更新收藏按钮状态
+    function updateFavoritesButton() {
+      const btn = document.getElementById('favoritesFilterBtn');
+      if (!btn) return;
+      const count = getVisibleFavoritesCount();
+      if (state.showFavoritesOnly) {
+        btn.className = 'inline-flex items-center px-4 py-3 bg-pink-100 text-pink-700 rounded-xl transition-all border border-pink-300';
+        btn.innerHTML = `<i class="fas fa-heart mr-2"></i><span>收藏 (${count})</span>`;
+      } else {
+        btn.className = 'inline-flex items-center px-4 py-3 text-gray-600 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-all border border-gray-200';
+        btn.innerHTML = `<i class="far fa-heart mr-2"></i><span>收藏 (${count})</span>`;
+      }
     }
 
     // ==================== 数据处理和渲染 ====================
@@ -769,7 +2203,17 @@
         return true;
       });
 
-      // 2. 范围筛选
+      // 2. 收藏筛选
+      if (state.showFavoritesOnly) {
+        filtered = filtered.filter(item => isFavorite(item.handle));
+      }
+
+      // 2.5 备注筛选
+      if (state.showNotesOnly) {
+        filtered = filtered.filter(item => state.notes[item.handle]);
+      }
+
+      // 3. 范围筛选
       filtered = filtered.filter(item => {
         const { visitMin, visitMax, growthMin, growthMax, rateMin, rateMax } = state.filters;
 
@@ -783,18 +2227,101 @@
         return true;
       });
 
-      // 3. 排序
-      if (state.sortField && state.sortOrder) {
-        filtered.sort((a, b) => {
-          const aVal = a[state.sortField];
-          const bVal = b[state.sortField];
+      // 4. Change 筛选
+      const { changeMin, changeMax, includeNew } = state.filters;
+      if (changeMin !== null || changeMax !== null || includeNew) {
+        const rankChangeMap = getRankChangeMap();
+        filtered = filtered.filter(item => {
+          const change = rankChangeMap[item.handle] || { type: 'new' };
 
-          if (state.sortOrder === 'asc') {
-            return aVal - bVal;
-          } else {
-            return bVal - aVal;
+          // 如果是 NEW
+          if (change.type === 'new') {
+            return includeNew;
           }
+
+          // 计算变化值
+          let changeValue = 0;
+          if (change.type === 'up') changeValue = change.value;
+          if (change.type === 'down') changeValue = -change.value;
+
+          // 如果没有设置范围，但勾选了 includeNew，则只显示 NEW
+          if (changeMin === null && changeMax === null && includeNew) {
+            return false; // 非 NEW 的不显示
+          }
+
+          // 范围检查
+          if (changeMin !== null && changeValue < changeMin) return false;
+          if (changeMax !== null && changeValue > changeMax) return false;
+
+          return true;
         });
+      }
+
+      // 5. 持续增长筛选
+      const { consecutiveChange, consecutiveGrowth } = state.filters;
+
+      if (consecutiveChange) {
+        filtered = filtered.filter(item => {
+          return checkConsecutiveChange(item.handle, consecutiveChange);
+        });
+      }
+
+      if (consecutiveGrowth) {
+        filtered = filtered.filter(item => {
+          return checkConsecutiveGrowth(item.handle, consecutiveGrowth);
+        });
+      }
+
+      // 6. 排序
+      if (state.sortField && state.sortOrder) {
+        // 如果是按 rank_change 排序，需要特殊处理
+        if (state.sortField === 'rank_change') {
+          const rankChangeMap = getRankChangeMap();
+          filtered.sort((a, b) => {
+            const aChange = rankChangeMap[a.handle] || { type: 'new' };
+            const bChange = rankChangeMap[b.handle] || { type: 'new' };
+
+            // 计算排序值：NEW = Infinity，up = 正数，same = 0，down = 负数
+            const getChangeValue = (change) => {
+              if (change.type === 'new') return Infinity;
+              if (change.type === 'up') return change.value;
+              if (change.type === 'down') return -change.value;
+              return 0; // same
+            };
+
+            const aVal = getChangeValue(aChange);
+            const bVal = getChangeValue(bChange);
+
+            if (state.sortOrder === 'asc') {
+              return aVal - bVal;
+            } else {
+              return bVal - aVal;
+            }
+          });
+        } else if (state.sortField === 'name') {
+          // 按名称首字母排序
+          filtered.sort((a, b) => {
+            const aVal = (a.name || '').toLowerCase();
+            const bVal = (b.name || '').toLowerCase();
+
+            if (state.sortOrder === 'asc') {
+              return aVal.localeCompare(bVal);
+            } else {
+              return bVal.localeCompare(aVal);
+            }
+          });
+        } else {
+          filtered.sort((a, b) => {
+            const aVal = a[state.sortField];
+            const bVal = b[state.sortField];
+
+            if (state.sortOrder === 'asc') {
+              return aVal - bVal;
+            } else {
+              return bVal - aVal;
+            }
+          });
+        }
       }
 
       state.filteredData = filtered;
@@ -828,8 +2355,19 @@
 
       emptyState.classList.add('hidden');
 
+      // 获取排名变化数据
+      const rankChangeMap = getRankChangeMap();
+
+      // 计算基于 Growth 的排名 Map（当前月份全部数据按 Growth 降序的排名，不受筛选影响）
+      const growthRankMap = {};
+      const allMonthData = state.allData[state.currentMonth] || [];
+      [...allMonthData].sort((a, b) => b.growth - a.growth).forEach((item, index) => {
+        growthRankMap[item.handle] = index + 1;
+      });
+
       tbody.innerHTML = pageData.map((item, index) => {
-        const rank = start + index + 1;
+        // # 编号始终显示 Growth 排名
+        const rank = growthRankMap[item.handle] || (start + index + 1);
         const tags = (item.tags || []).slice(0, 4);
 
         // 排名徽章样式
@@ -844,18 +2382,31 @@
           rankBadge = `<div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 font-semibold text-sm">${rank}</div>`;
         }
 
-        return `
-          <!-- Component: TableRow -->
-          <tr data-list-item class="hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 transition-all group">
+        // 排名变化显示
+        const rankChange = rankChangeMap[item.handle] || { type: 'new' };
+        let changeHtml = '';
+        if (rankChange.type === 'new') {
+          changeHtml = '<span class="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs font-semibold">NEW</span>';
+        } else if (rankChange.type === 'up') {
+          changeHtml = `<span class="inline-flex items-center text-green-600 font-semibold text-sm">+${rankChange.value}</span>`;
+        } else if (rankChange.type === 'down') {
+          changeHtml = `<span class="inline-flex items-center text-red-600 font-semibold text-sm">-${rankChange.value}</span>`;
+        } else {
+          changeHtml = '<span class="inline-flex items-center text-gray-400 font-semibold text-sm">0</span>';
+        }
+
+        // 主数据行
+        const mainRow = `
+          <tr data-list-item class="hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 transition-all group ${state.showTrendView ? 'border-b-0' : ''}">
             <td class="px-5 py-4">${rankBadge}</td>
             <td class="px-5 py-4">
               <div class="flex flex-col">
-                <span data-field="item.name" class="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">${escapeHtml(item.name)}</span>
-                <span data-field="item.description" class="text-sm text-gray-500 mt-1 line-clamp-2">${escapeHtml(item.description || '')}</span>
+                <a href="https://www.toolify.ai/tool/${encodeURIComponent(item.handle)}" target="_blank" rel="noopener noreferrer" data-field="item.name" class="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors hover:underline">${escapeHtml(item.name)}</a>
+                <span data-field="item.description" class="text-sm text-gray-500 mt-1 line-clamp-2">${escapeHtml(getTranslatedText(item.description) || '')}</span>
                 ${tags.length > 0 ? `
                   <div class="flex flex-wrap gap-1.5 mt-2">
                     ${tags.map(tag => `
-                      <span class="inline-block px-2.5 py-1 text-xs bg-gradient-to-r from-gray-100 to-gray-50 text-gray-600 rounded-full border border-gray-200/50">${escapeHtml(tag)}</span>
+                      <span class="inline-block px-2.5 py-1 text-xs bg-gradient-to-r from-gray-100 to-gray-50 text-gray-600 rounded-full border border-gray-200/50">${escapeHtml(getTranslatedText(tag))}</span>
                     `).join('')}
                   </div>
                 ` : ''}
@@ -877,9 +2428,33 @@
                 ${formatRate(item.growth_rate)}
               </span>
             </td>
+            <td class="px-5 py-4 text-center">
+              ${changeHtml}
+            </td>
+            <td class="px-5 py-4 text-center">
+              <button onclick="openNoteModal('${escapeHtml(item.handle)}', '${escapeHtml(item.name)}')"
+                      class="w-8 h-8 flex items-center justify-center rounded-full transition-all relative group/note ${state.notes[item.handle] ? 'text-yellow-500 bg-yellow-50 hover:bg-yellow-100' : 'text-gray-300 hover:text-yellow-400 hover:bg-yellow-50'}"
+                      title="${state.notes[item.handle] ? escapeHtml(state.notes[item.handle]) : '添加备注'}">
+                <i class="${state.notes[item.handle] ? 'fas' : 'far'} fa-sticky-note"></i>
+                ${state.notes[item.handle] ? `
+                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg whitespace-nowrap max-w-xs truncate opacity-0 group-hover/note:opacity-100 transition-opacity pointer-events-none z-50">
+                    ${escapeHtml(state.notes[item.handle])}
+                  </div>
+                ` : ''}
+              </button>
+            </td>
+            <td class="px-5 py-4 text-center">
+              <button onclick="toggleFavorite('${escapeHtml(item.handle)}')" class="w-8 h-8 flex items-center justify-center rounded-full transition-all ${isFavorite(item.handle) ? 'text-pink-500 bg-pink-50 hover:bg-pink-100' : 'text-gray-300 hover:text-pink-400 hover:bg-pink-50'}">
+                <i class="${isFavorite(item.handle) ? 'fas' : 'far'} fa-heart"></i>
+              </button>
+            </td>
           </tr>
-          <!-- /Component: TableRow -->
         `;
+
+        // 趋势展开行（仅在展开视图时显示）
+        const trendRow = state.showTrendView ? generateTrendRow(item.handle, 8) : '';
+
+        return mainRow + trendRow;
       }).join('');
     }
 
@@ -956,14 +2531,22 @@
     }
 
     // ==================== 初始化 ====================
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', async function() {
+      // 优先从服务器加载数据，失败则使用 localStorage
+      await loadFromServer();
       loadFromStorage();
+      updateFavoritesButton();
+      updateNotesButton();
+      updateTrendViewButton();
+      updateSortIcons();  // 初始化排序图标状态
     });
 
     // ESC 关闭弹窗
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
         closePasteModal();
+        closeNoteModal();
+        closeMonthSelectModal();
       }
     });
   </script>
