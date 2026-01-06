@@ -714,7 +714,7 @@
       }
     }
 
-    // 从服务器加载数据
+    // 从服务器加载数据（本地开发用）
     async function loadFromServer() {
       try {
         // 加载主数据
@@ -750,7 +750,42 @@
         console.log('[启动] 从服务器加载数据成功');
         return true;
       } catch (e) {
-        console.log('[启动] 服务器未连接，使用 localStorage 数据');
+        console.log('[启动] 服务器未连接，尝试从静态文件加载');
+        return false;
+      }
+    }
+
+    // 从静态 JSON 文件加载数据（GitHub Pages 部署用）
+    async function loadFromStaticFiles() {
+      try {
+        // 加载主数据
+        const dataRes = await fetch('./data/allData.json');
+        if (dataRes.ok) {
+          const data = await dataRes.json();
+          state.allData = data;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state.allData));
+          console.log('[启动] 从静态文件加载主数据成功');
+        }
+
+        // 加载收藏
+        const favRes = await fetch('./data/favorites.json');
+        if (favRes.ok) {
+          const favData = await favRes.json();
+          state.favorites = favData;
+          localStorage.setItem('favorites', JSON.stringify(state.favorites));
+        }
+
+        // 加载备注
+        const notesRes = await fetch('./data/notes.json');
+        if (notesRes.ok) {
+          const notesData = await notesRes.json();
+          state.notes = notesData;
+          localStorage.setItem('notes', JSON.stringify(state.notes));
+        }
+
+        return true;
+      } catch (e) {
+        console.log('[启动] 加载静态文件失败:', e);
         return false;
       }
     }
@@ -2532,8 +2567,12 @@
 
     // ==================== 初始化 ====================
     document.addEventListener('DOMContentLoaded', async function() {
-      // 优先从服务器加载数据，失败则使用 localStorage
-      await loadFromServer();
+      // 加载数据优先级：服务器 API > 静态 JSON 文件 > localStorage
+      const serverLoaded = await loadFromServer();
+      if (!serverLoaded) {
+        // 服务器未连接，尝试从静态文件加载（适用于 GitHub Pages）
+        await loadFromStaticFiles();
+      }
       loadFromStorage();
       updateFavoritesButton();
       updateNotesButton();
