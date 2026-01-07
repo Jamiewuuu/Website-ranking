@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>个人中心 - 网站榜单</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          maxWidth: {
+            '8xl': '1600px'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-200/50 sticky top-0 z-40">
+    <div class="max-w-8xl mx-auto px-6 py-5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-10 h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
+            <i class="fas fa-user text-white text-lg"></i>
+          </div>
+          <div>
+            <h1 class="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">个人中心</h1>
+            <p class="text-sm text-gray-500">收藏与备注管理</p>
+          </div>
+        </div>
+        <a href="index.html" class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 text-sm font-medium">
+          <i class="fas fa-arrow-left mr-2"></i>
+          返回榜单
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-8xl mx-auto px-6 py-8">
+    <div class="flex flex-col lg:flex-row gap-8">
+
+      <!-- 侧边栏：月份列表 -->
+      <aside class="lg:w-52 flex-shrink-0">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 overflow-hidden lg:sticky lg:top-24">
+          <div class="p-4 bg-gradient-to-r from-purple-600 to-indigo-600">
+            <div class="flex items-center gap-2 text-white">
+              <i class="fas fa-filter"></i>
+              <span class="font-semibold">筛选视图</span>
+            </div>
+          </div>
+          <div id="monthList" class="max-h-96 overflow-y-auto">
+            <div class="p-6 text-sm text-gray-400 text-center">
+              <i class="fas fa-spinner fa-spin text-3xl mb-3 text-gray-300"></i>
+              <p>加载中...</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 主内容区 -->
+      <div class="flex-1 min-w-0">
+        <!-- 网站列表 -->
+        <div id="websiteList" class="space-y-6">
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 p-8 text-center text-gray-400">
+            <i class="fas fa-spinner fa-spin text-4xl mb-4 text-gray-300"></i>
+            <p>加载数据中...</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Toast 消息 -->
+  <div id="toast" class="fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-50"></div>
+
+  <script>
+    // ==================== 状态管理 ====================
+    const STORAGE_KEY = 'websiteRankingData';
+
+    const state = {
+      allData: {},  // 所有月份数据
+      favorites: JSON.parse(localStorage.getItem('favorites') || '{}'),
+      notes: JSON.parse(localStorage.getItem('notes') || '{}'),
+      currentView: 'all'  // 'all' 或具体月份如 '2025-08'
+    };
+
+    // 检测是否在静态托管环境
+    const isStaticHosting = window.location.hostname !== 'localhost' &&
+                            window.location.hostname !== '127.0.0.1';
+
+    // ==================== 工具函数 ====================
+
+    // 格式化数值显示
+    function formatNumber(num) {
+      if (num >= 1000000000) {
+        return (num / 1000000000).toFixed(2) + 'B';
+      } else if (num >= 1000000) {
+        return (num / 1000000).toFixed(2) + 'M';
+      } else if (num >= 1000) {
+        return (num / 1000).toFixed(2) + 'K';
+      }
+      return num.toString();
+    }
+
+    // 格式化增长率
+    function formatRate(rate) {
+      const percent = (rate * 100).toFixed(2);
+      return rate >= 0 ? `+${percent}%` : `${percent}%`;
+    }
+
+    // HTML 转义
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // 显示 Toast 消息
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+      const bgColor = type === 'success' ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+                      type === 'error' ? 'bg-gradient-to-r from-red-500 to-rose-500' :
+                      'bg-gradient-to-r from-gray-700 to-gray-800';
+
+      toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl transform transition-all duration-300 z-50 flex items-center gap-3 text-white ${bgColor}`;
+      toast.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span>`;
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-20', 'opacity-0');
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3000);
+    }
+
+    // ==================== 数据加载 ====================
+
+    // 从静态文件加载主数据（allData）
+    async function loadAllDataFromStaticFiles() {
+      try {
+        console.log('[个人中心] 正在从静态文件加载主数据...');
+        const dataRes = await fetch('./data/allData.json');
+        if (dataRes.ok) {
+          const data = await dataRes.json();
+          state.allData = data;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state.allData));
+          console.log('[个人中心] 从静态文件加载主数据成功');
+          return true;
+        }
+        return false;
+      } catch (e) {
+        console.error('[个人中心] 加载静态文件失败:', e);
+        return false;
+      }
+    }
+
+    // 从 localStorage 加载收藏和备注
+    function loadFavoritesAndNotes() {
+      const favStored = localStorage.getItem('favorites');
+      console.log('[个人中心] localStorage favorites:', favStored);
+      if (favStored) {
+        try {
+          const parsed = JSON.parse(favStored);
+          // 兼容旧格式
+          if (!Array.isArray(parsed)) {
+            state.favorites = parsed;
+          }
+        } catch (e) {
+          console.error('[个人中心] 解析 favorites 失败:', e);
+        }
+      }
+
+      const notesStored = localStorage.getItem('notes');
+      console.log('[个人中心] localStorage notes:', notesStored);
+      if (notesStored) {
+        try {
+          state.notes = JSON.parse(notesStored);
+        } catch (e) {
+          console.error('[个人中心] 解析 notes 失败:', e);
+        }
+      }
+      console.log('[个人中心] 加载后 state.favorites:', state.favorites);
+      console.log('[个人中心] 加载后 state.notes:', state.notes);
+    }
+
+    // 从 localStorage 加载数据
+    function loadFromStorage() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        try {
+          state.allData = JSON.parse(stored);
+          console.log('[个人中心] 从 localStorage 加载数据成功');
+          return true;
+        } catch (e) {
+          console.error('[个人中心] 解析 localStorage 数据失败:', e);
+        }
+      }
+      return false;
+    }
+
+    // ==================== 核心逻辑 ====================
+
+    // 获取网站首次入榜的月份
+    function getFirstSeenMonth(handle) {
+      const months = Object.keys(state.allData).sort();  // 按时间升序
+      for (const month of months) {
+        const monthData = state.allData[month];
+        if (monthData && monthData.some(item => item.handle === handle)) {
+          return month;
+        }
+      }
+      return null;
+    }
+
+    // 获取网站在指定月份的数据
+    function getWebsiteDataInMonth(handle, month) {
+      const monthData = state.allData[month];
+      if (!monthData) return null;
+      return monthData.find(item => item.handle === handle) || null;
+    }
+
+    // 获取所有收藏/备注过的网站 handle
+    function getAllMarkedHandles() {
+      const handles = new Set();
+
+      // 收藏的网站
+      Object.values(state.favorites).forEach(list => {
+        if (Array.isArray(list)) {
+          list.forEach(h => handles.add(h));
+        }
+      });
+
+      // 备注的网站
+      Object.keys(state.notes).forEach(h => {
+        if (state.notes[h]) {
+          handles.add(h);
+        }
+      });
+
+      return handles;
+    }
+
+    // 检查网站是否已收藏
+    function isFavorited(handle) {
+      return Object.values(state.favorites).some(list =>
+        Array.isArray(list) && list.includes(handle)
+      );
+    }
+
+    // 获取按首次入榜月份分组的数据
+    function getGroupedData() {
+      const handles = getAllMarkedHandles();
+      const grouped = {};  // { '2025-08': [{ handle, data, isFavorited, note }] }
+
+      handles.forEach(handle => {
+        const firstMonth = getFirstSeenMonth(handle);
+        if (!firstMonth) return;  // 找不到数据，跳过
+
+        const data = getWebsiteDataInMonth(handle, firstMonth);
+        if (!data) return;
+
+        if (!grouped[firstMonth]) {
+          grouped[firstMonth] = [];
+        }
+
+        grouped[firstMonth].push({
+          handle,
+          data,
+          firstMonth,
+          isFavorited: isFavorited(handle),
+          note: state.notes[handle] || null
+        });
+      });
+
+      return grouped;
+    }
+
+    // 获取有数据的月份列表（只显示有收藏/备注网站首次入榜的月份）
+    function getAvailableMonths() {
+      const grouped = getGroupedData();
+      return Object.keys(grouped).sort().reverse();  // 按时间降序
+    }
+
+    // ==================== 渲染 ====================
+
+    // 渲染侧边栏月份列表
+    function renderMonthList() {
+      const months = getAvailableMonths();
+      const grouped = getGroupedData();
+      const container = document.getElementById('monthList');
+
+      if (months.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 text-sm text-gray-400 text-center">
+            <i class="fas fa-inbox text-3xl mb-3 text-gray-300"></i>
+            <p>暂无收藏或备注</p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+
+      // 全部选项
+      const allCount = getAllMarkedHandles().size;
+      html += `
+        <div class="month-item px-4 py-3 cursor-pointer transition-all border-l-4 ${state.currentView === 'all' ? 'bg-purple-50 border-purple-500 text-purple-700' : 'border-transparent hover:bg-gray-50 text-gray-700'}"
+             onclick="switchView('all')">
+          <div class="flex items-center justify-between">
+            <span class="font-medium">全部</span>
+            <span class="text-xs px-2 py-0.5 rounded-full ${state.currentView === 'all' ? 'bg-purple-200 text-purple-700' : 'bg-gray-200 text-gray-600'}">${allCount}</span>
+          </div>
+        </div>
+      `;
+
+      // 分隔线
+      html += '<div class="border-t border-gray-100 my-1"></div>';
+
+      // 月份列表
+      months.forEach(month => {
+        const count = grouped[month] ? grouped[month].length : 0;
+        const isActive = state.currentView === month;
+        html += `
+          <div class="month-item px-4 py-3 cursor-pointer transition-all border-l-4 ${isActive ? 'bg-purple-50 border-purple-500 text-purple-700' : 'border-transparent hover:bg-gray-50 text-gray-700'}"
+               onclick="switchView('${month}')">
+            <div class="flex items-center justify-between">
+              <span class="font-medium">${month}</span>
+              <span class="text-xs px-2 py-0.5 rounded-full ${isActive ? 'bg-purple-200 text-purple-700' : 'bg-gray-200 text-gray-600'}">${count}</span>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // 渲染网站卡片
+    function renderWebsiteCard(item) {
+      const { handle, data, firstMonth, isFavorited, note } = item;
+      const safeHandle = handle.replace(/'/g, "\\'");
+
+      return `
+        <div class="website-card mb-4">
+          <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+              <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                ${data.rank || '-'}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <a href="https://${handle}" target="_blank" class="font-semibold text-gray-900 hover:text-blue-600 truncate">
+                    ${escapeHtml(data.name || handle)}
+                  </a>
+                  ${isFavorited ? '<i class="fas fa-heart text-pink-500 text-sm"></i>' : ''}
+                  ${note ? '<i class="fas fa-sticky-note text-yellow-500 text-sm"></i>' : ''}
+                </div>
+                <div class="text-sm text-gray-500 truncate">${escapeHtml(handle)}</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-6 flex-shrink-0">
+              <div class="text-right">
+                <div class="text-sm text-gray-500">访问量</div>
+                <div class="font-semibold text-gray-900">${formatNumber(data.visits || 0)}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm text-gray-500">增长率</div>
+                <div class="font-semibold ${(data.growthRate || 0) >= 0 ? 'text-green-600' : 'text-red-600'}">
+                  ${formatRate(data.growthRate || 0)}
+                </div>
+              </div>
+              <div class="text-right hidden sm:block">
+                <div class="text-sm text-gray-500">首次入榜</div>
+                <div class="font-semibold text-gray-700">${firstMonth}</div>
+              </div>
+            </div>
+          </div>
+          ${note ? `
+            <div class="ml-14 mt-2 p-3 bg-yellow-50 rounded-lg border border-yellow-200" data-note-container="${handle}">
+              <div class="note-display" data-note-display="${handle}">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-start gap-2 flex-1 min-w-0">
+                    <i class="fas fa-sticky-note text-yellow-500 mt-0.5 flex-shrink-0"></i>
+                    <span class="text-sm text-yellow-800 whitespace-pre-wrap break-words">${escapeHtml(note)}</span>
+                  </div>
+                  <button onclick="startEditNote('${safeHandle}')" class="text-yellow-600 hover:text-yellow-700 text-sm flex-shrink-0 px-2 py-1 hover:bg-yellow-100 rounded transition-colors">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="note-edit hidden" data-note-edit="${handle}">
+                <textarea class="w-full p-2 text-sm border border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 resize-none bg-white" rows="3" data-note-textarea="${handle}">${escapeHtml(note)}</textarea>
+                <div class="flex justify-end gap-2 mt-2">
+                  <button onclick="cancelEditNote('${safeHandle}')" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors">
+                    取消
+                  </button>
+                  <button onclick="saveNote('${safeHandle}')" class="px-3 py-1 text-sm bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors">
+                    保存
+                  </button>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    // 开始编辑备注
+    function startEditNote(handle) {
+      const displayEl = document.querySelector(\`[data-note-display="\${handle}"]\`);
+      const editEl = document.querySelector(\`[data-note-edit="\${handle}"]\`);
+      if (displayEl && editEl) {
+        displayEl.classList.add('hidden');
+        editEl.classList.remove('hidden');
+        const textarea = document.querySelector(\`[data-note-textarea="\${handle}"]\`);
+        if (textarea) {
+          textarea.focus();
+          textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+        }
+      }
+    }
+
+    // 取消编辑备注
+    function cancelEditNote(handle) {
+      const displayEl = document.querySelector(\`[data-note-display="\${handle}"]\`);
+      const editEl = document.querySelector(\`[data-note-edit="\${handle}"]\`);
+      const textarea = document.querySelector(\`[data-note-textarea="\${handle}"]\`);
+      if (displayEl && editEl) {
+        // 恢复原内容
+        if (textarea) {
+          textarea.value = state.notes[handle] || '';
+        }
+        editEl.classList.add('hidden');
+        displayEl.classList.remove('hidden');
+      }
+    }
+
+    // 保存备注
+    function saveNote(handle) {
+      const textarea = document.querySelector(\`[data-note-textarea="\${handle}"]\`);
+      if (!textarea) return;
+
+      const newNote = textarea.value.trim();
+
+      if (newNote) {
+        state.notes[handle] = newNote;
+      } else {
+        delete state.notes[handle];
+      }
+
+      // 保存到 localStorage
+      localStorage.setItem('notes', JSON.stringify(state.notes));
+
+      // 重新渲染
+      renderMonthList();
+      renderWebsiteList();
+
+      showToast(newNote ? '备注已更新' : '备注已删除', 'success');
+    }
+
+    // 渲染网站列表
+    function renderWebsiteList() {
+      const grouped = getGroupedData();
+      const container = document.getElementById('websiteList');
+      const handles = getAllMarkedHandles();
+
+      if (handles.size === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 p-8 text-center">
+            <i class="fas fa-inbox text-5xl mb-4 text-gray-300"></i>
+            <p class="text-gray-500 mb-2">暂无收藏或备注的网站</p>
+            <a href="index.html" class="text-blue-600 hover:text-blue-700 text-sm">前往榜单添加</a>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+
+      if (state.currentView === 'all') {
+        // 全部视图：按月份分组显示
+        const months = Object.keys(grouped).sort().reverse();
+
+        months.forEach(month => {
+          const items = grouped[month];
+          html += `
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 overflow-hidden">
+              <div class="px-5 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <i class="fas fa-calendar text-purple-500"></i>
+                    <span class="font-semibold text-gray-900">${month}</span>
+                  </div>
+                  <span class="text-sm text-gray-500">${items.length} 个网站</span>
+                </div>
+              </div>
+              <div class="p-4 space-y-3">
+                ${items.map(item => renderWebsiteCard(item)).join('')}
+              </div>
+            </div>
+          `;
+        });
+      } else {
+        // 单月份视图
+        const items = grouped[state.currentView] || [];
+
+        if (items.length === 0) {
+          html = `
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 p-8 text-center">
+              <i class="fas fa-inbox text-5xl mb-4 text-gray-300"></i>
+              <p class="text-gray-500">该月份暂无收藏或备注的网站</p>
+            </div>
+          `;
+        } else {
+          html = `
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 overflow-hidden">
+              <div class="px-5 py-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <i class="fas fa-calendar text-purple-500"></i>
+                    <span class="font-semibold text-gray-900">${state.currentView}</span>
+                  </div>
+                  <span class="text-sm text-gray-500">${items.length} 个网站</span>
+                </div>
+              </div>
+              <div class="p-4 space-y-3">
+                ${items.map(item => renderWebsiteCard(item)).join('')}
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      container.innerHTML = html;
+    }
+
+    // 切换视图
+    function switchView(view) {
+      state.currentView = view;
+      renderMonthList();
+      renderWebsiteList();
+    }
+
+    // ==================== 初始化 ====================
+    document.addEventListener('DOMContentLoaded', async function() {
+      // 1. 从 localStorage 加载收藏和备注（用户在榜单页的操作）
+      loadFavoritesAndNotes();
+
+      // 2. 加载主数据（allData）：优先 localStorage，然后尝试静态文件
+      const hasLocal = loadFromStorage();
+      if (!hasLocal || Object.keys(state.allData).length === 0) {
+        await loadAllDataFromStaticFiles();
+      }
+
+      // 如果还没有数据，显示空状态
+      if (Object.keys(state.allData).length === 0) {
+        document.getElementById('monthList').innerHTML = `
+          <div class="p-6 text-sm text-gray-400 text-center">
+            <i class="fas fa-inbox text-3xl mb-3 text-gray-300"></i>
+            <p>暂无数据</p>
+            <a href="index.html" class="text-blue-500 hover:text-blue-600 text-sm mt-2 block">前往榜单</a>
+          </div>
+        `;
+        document.getElementById('websiteList').innerHTML = `
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 p-8 text-center">
+            <i class="fas fa-database text-5xl mb-4 text-gray-300"></i>
+            <p class="text-gray-500 mb-2">请先在榜单页面上传数据</p>
+            <a href="index.html" class="text-blue-600 hover:text-blue-700 text-sm">前往榜单</a>
+          </div>
+        `;
+        return;
+      }
+
+      // 渲染页面
+      console.log('[个人中心] 渲染前 - allData 月份数:', Object.keys(state.allData).length);
+      console.log('[个人中心] 渲染前 - favorites:', state.favorites);
+      console.log('[个人中心] 渲染前 - notes:', state.notes);
+      console.log('[个人中心] 渲染前 - 标记的网站:', getAllMarkedHandles());
+      renderMonthList();
+      renderWebsiteList();
+    });
+  </script>
+
+</body>
+</html>

@@ -57,9 +57,11 @@
             <p class="text-sm text-gray-500">AI 网站流量增长排名</p>
           </div>
         </div>
-        <div class="hidden md:flex items-center gap-2 text-sm text-gray-500">
-          <i class="fas fa-database"></i>
-          <span id="headerStats">数据统计</span>
+        <div class="hidden md:flex items-center gap-4">
+          <a href="profile.html" class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 text-sm font-medium">
+            <i class="fas fa-user mr-2"></i>
+            个人中心
+          </a>
         </div>
       </div>
     </div>
@@ -91,13 +93,21 @@
       <!-- 右侧主内容区 -->
       <div class="flex-1 min-w-0">
 
+        <!-- Component: RankingTabs - 动态渲染 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 p-2 mb-6">
+          <div id="rankingTabs" class="flex">
+            <!-- 由 renderRankingTabs() 动态生成 -->
+          </div>
+        </div>
+        <!-- /Component: RankingTabs -->
+
         <!-- Component: ActionBar -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 p-5 mb-6">
           <div class="flex flex-wrap items-center gap-3">
-            <label class="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl cursor-pointer hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-105">
+            <label id="uploadBtn" class="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl cursor-pointer hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-105">
               <i class="fas fa-upload mr-2"></i>
-              <span class="font-medium">上传文件</span>
-              <input type="file" id="uploadInput" accept=".json" class="hidden" onchange="handleUpload(event)">
+              <span id="uploadBtnText" class="font-medium">上传数据</span>
+              <input type="file" id="uploadInput" accept=".json" class="hidden" onchange="handleCurrentRankingUpload(event)">
             </label>
             <button onclick="openPasteModal()" class="inline-flex items-center px-5 py-2.5 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-all hover:scale-105 border border-blue-200">
               <i class="fas fa-paste mr-2"></i>
@@ -478,12 +488,51 @@
   <!-- /Component: Toast -->
 
   <script>
+    // ==================== 榜单配置（可扩展） ====================
+    const RANKING_CONFIG = {
+      traffic: {
+        name: '流量增长榜',
+        storageKey: 'website_ranking_data',
+        icon: 'fa-chart-line',
+        color: 'blue',           // tailwind 颜色前缀
+        gradient: 'from-blue-600 to-indigo-600',
+        rankBy: 'growth',        // 排序依据：growth=按增长值，order=按上传顺序
+        isMain: true,            // 是否为主榜（总榜）
+        syncToMain: false        // 是否同步到主榜
+      },
+      revenue: {
+        name: '收入榜',
+        storageKey: 'websiteRevenueData',
+        icon: 'fa-dollar-sign',
+        color: 'green',
+        gradient: 'from-green-600 to-emerald-600',
+        rankBy: 'order',
+        isMain: false,
+        syncToMain: true
+      }
+      // 未来扩展示例：
+      // category: { name: '网站分类榜', storageKey: 'websiteCategoryData', ... }
+      // region: { name: '流量地区榜', storageKey: 'websiteRegionData', ... }
+      // source: { name: '流量来源榜', storageKey: 'websiteSourceData', ... }
+    };
+
     // ==================== 状态管理 ====================
-    const STORAGE_KEY = 'website_ranking_data';
+    const STORAGE_KEY = 'website_ranking_data';  // 保留兼容性
     const PAGE_SIZE = 300;
 
     let state = {
-      allData: {},
+      // 所有榜单数据统一存储
+      rankings: {
+        traffic: {},   // 流量增长榜数据
+        revenue: {}    // 收入榜数据
+        // 未来扩展时在此添加
+      },
+      // 兼容性别名（指向 rankings 中的数据）
+      get allData() { return this.rankings.traffic; },
+      set allData(val) { this.rankings.traffic = val; },
+      get revenueData() { return this.rankings.revenue; },
+      set revenueData(val) { this.rankings.revenue = val; },
+      currentRankingType: 'traffic',  // 当前榜单类型
       currentMonth: '',
       filteredData: [],
       currentPage: 1,
@@ -522,6 +571,28 @@
       notes: JSON.parse(localStorage.getItem('notes') || '{}'),  // 备注 { "handle": "备注内容" }
       showTrendView: localStorage.getItem('showTrendView') === 'true'  // 是否展开趋势视图
     };
+
+    // ==================== 榜单工具函数 ====================
+
+    // 获取当前榜单配置
+    function getCurrentConfig() {
+      return RANKING_CONFIG[state.currentRankingType];
+    }
+
+    // 获取当前榜单的数据源
+    function getCurrentData() {
+      return state.rankings[state.currentRankingType];
+    }
+
+    // 获取指定榜单的存储 key
+    function getStorageKey(rankingType) {
+      return RANKING_CONFIG[rankingType]?.storageKey || STORAGE_KEY;
+    }
+
+    // 获取主榜类型（isMain=true 的榜单）
+    function getMainRankingType() {
+      return Object.keys(RANKING_CONFIG).find(key => RANKING_CONFIG[key].isMain) || 'traffic';
+    }
 
     // ==================== 工具函数 ====================
 
@@ -660,14 +731,43 @@
 
           updateMonthSelect();
           applyFiltersAndRender();
-          updateHeaderStats();
         }
       } catch (e) {
         console.error('加载数据失败:', e);
       }
     }
 
-    // 保存到 LocalStorage
+    // 从 localStorage 加载指定榜单数据
+    function loadRankingFromStorage(rankingType) {
+      try {
+        const storageKey = getStorageKey(rankingType);
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          state.rankings[rankingType] = JSON.parse(stored);
+          console.log(`[启动] 从 localStorage 加载${RANKING_CONFIG[rankingType].name}数据成功`);
+        }
+      } catch (e) {
+        console.error(`加载${RANKING_CONFIG[rankingType].name}数据失败:`, e);
+      }
+    }
+
+    // 兼容性函数
+    function loadRevenueFromStorage() {
+      loadRankingFromStorage('revenue');
+    }
+
+    // 保存指定榜单到 LocalStorage
+    function saveRankingToStorage(rankingType) {
+      try {
+        const storageKey = getStorageKey(rankingType);
+        localStorage.setItem(storageKey, JSON.stringify(state.rankings[rankingType]));
+      } catch (e) {
+        console.error(`保存${RANKING_CONFIG[rankingType].name}数据失败:`, e);
+        showToast('保存数据失败，可能存储空间不足', 'error');
+      }
+    }
+
+    // 保存到 LocalStorage（兼容旧代码）
     function saveToStorage() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state.allData));
@@ -759,7 +859,7 @@
       }
     }
 
-    // 从静态 JSON 文件加载数据（GitHub Pages 部署用）
+    // 从静态 JSON 文件加载数据
     async function loadFromStaticFiles() {
       try {
         // 加载主数据
@@ -774,20 +874,28 @@
           console.error('[启动] 加载 allData.json 失败:', dataRes.status, dataRes.statusText);
         }
 
-        // 加载收藏
-        const favRes = await fetch('./data/favorites.json');
-        if (favRes.ok) {
-          const favData = await favRes.json();
-          state.favorites = favData;
-          localStorage.setItem('favorites', JSON.stringify(state.favorites));
+        // 收藏和备注优先使用 localStorage（用户本地操作的数据）
+        // 只有 localStorage 为空时才从静态文件加载
+        const localFavorites = localStorage.getItem('favorites');
+        if (!localFavorites) {
+          const favRes = await fetch('./data/favorites.json');
+          if (favRes.ok) {
+            const favData = await favRes.json();
+            state.favorites = favData;
+            localStorage.setItem('favorites', JSON.stringify(state.favorites));
+            console.log('[启动] 从静态文件加载收藏');
+          }
         }
 
-        // 加载备注
-        const notesRes = await fetch('./data/notes.json');
-        if (notesRes.ok) {
-          const notesData = await notesRes.json();
-          state.notes = notesData;
-          localStorage.setItem('notes', JSON.stringify(state.notes));
+        const localNotes = localStorage.getItem('notes');
+        if (!localNotes) {
+          const notesRes = await fetch('./data/notes.json');
+          if (notesRes.ok) {
+            const notesData = await notesRes.json();
+            state.notes = notesData;
+            localStorage.setItem('notes', JSON.stringify(state.notes));
+            console.log('[启动] 从静态文件加载备注');
+          }
         }
 
         return true;
@@ -801,47 +909,59 @@
     function saveFavoritesAndNotes() {
       localStorage.setItem('favorites', JSON.stringify(state.favorites));
       localStorage.setItem('notes', JSON.stringify(state.notes));
-      saveToServer();
+      // 只在本地开发且有 API 服务器时尝试保存到服务器
+      // 静态文件服务器（如 python -m http.server）无法处理 POST 请求
+      // saveToServer();  // 暂时禁用，避免控制台报错
     }
 
     // 更新月份列表
     function updateMonthSelect() {
       const monthList = document.getElementById('monthList');
-      const months = Object.keys(state.allData).sort().reverse();
+      const currentData = getCurrentData();  // 根据当前榜单类型获取数据源
+      const months = Object.keys(currentData).sort().reverse();
+
+      // 判断当前榜单类型的样式
+      const isRevenue = state.currentRankingType === 'revenue';
+      const activeClass = isRevenue
+        ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 border-l-4 border-green-600'
+        : 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-l-4 border-blue-600';
+      const activeTextClass = isRevenue ? 'text-green-500' : 'text-blue-500';
 
       if (months.length === 0) {
         monthList.innerHTML = `
           <div class="p-6 text-sm text-gray-400 text-center">
             <i class="fas fa-inbox text-3xl mb-3 text-gray-300"></i>
-            <p>请上传数据</p>
+            <p>${isRevenue ? '请上传收入榜数据' : '请上传数据'}</p>
           </div>
         `;
+        // 如果当前月份不在数据中，清空
+        if (!months.includes(state.currentMonth)) {
+          state.currentMonth = '';
+        }
         return;
+      }
+
+      // 如果当前月份不在新数据中，选择第一个月份
+      if (!months.includes(state.currentMonth)) {
+        state.currentMonth = months[0];
       }
 
       monthList.innerHTML = months.map(m => {
         const isActive = m === state.currentMonth;
-        const dataCount = state.allData[m]?.length || 0;
+        const dataCount = currentData[m]?.length || 0;
         return `
           <button onclick="selectMonth('${m}')"
                   data-month="${m}"
                   class="w-full px-4 py-3 text-left transition-all ${
                     isActive
-                      ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-l-4 border-blue-600'
+                      ? activeClass
                       : 'text-gray-600 hover:bg-gray-50 border-l-4 border-transparent'
                   }">
             <div class="font-medium">${m}</div>
-            <div class="text-xs ${isActive ? 'text-blue-500' : 'text-gray-400'} mt-0.5">${dataCount} 条数据</div>
+            <div class="text-xs ${isActive ? activeTextClass : 'text-gray-400'} mt-0.5">${dataCount} 条数据</div>
           </button>
         `;
       }).join('');
-    }
-
-    // 更新头部统计
-    function updateHeaderStats() {
-      const months = Object.keys(state.allData).length;
-      const total = Object.values(state.allData).reduce((sum, arr) => sum + arr.length, 0);
-      document.getElementById('headerStats').textContent = `${months} 个月份 · ${total} 条数据`;
     }
 
     // 选择月份
@@ -1068,7 +1188,6 @@
 
       saveToStorage();
       updateMonthSelect();
-      updateHeaderStats();
 
       resetFiltersAndSort();
       applyFiltersAndRender();
@@ -1305,6 +1424,219 @@
       event.target.value = '';
     }
 
+    // 重新计算指定月份的排名（主榜，按 growth 排序）
+    function recalculateRanks(month) {
+      const data = state.allData[month];
+      if (!data) return;
+
+      // 按 growth 降序排序（与显示逻辑一致）
+      data.sort((a, b) => (b.growth || 0) - (a.growth || 0));
+
+      // 获取上月数据计算 change（上月也按 growth 排序）
+      const prevMonth = getPrevMonth(month);
+      const prevData = state.allData[prevMonth] || [];
+      const prevRankMap = {};
+      [...prevData].sort((a, b) => (b.growth || 0) - (a.growth || 0)).forEach((item, index) => {
+        prevRankMap[item.handle] = index + 1;
+      });
+
+      // 更新 rank 和 change
+      data.forEach((item, index) => {
+        item.rank = index + 1;
+        const prevRank = prevRankMap[item.handle];
+        item.change = prevRank ? prevRank - item.rank : null;
+      });
+    }
+
+    // 获取上一个月份
+    function getPrevMonth(month) {
+      const [year, m] = month.split('-').map(Number);
+      const prevDate = new Date(year, m - 2, 1);  // 月份是 0-indexed
+      return `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    // 渲染榜单 Tabs（从配置动态生成）
+    function renderRankingTabs() {
+      const container = document.getElementById('rankingTabs');
+      if (!container) return;
+
+      container.innerHTML = Object.entries(RANKING_CONFIG).map(([key, config]) => {
+        const isActive = state.currentRankingType === key;
+        const activeClass = isActive
+          ? `bg-gradient-to-r ${config.gradient} text-white shadow-lg`
+          : 'text-gray-600 hover:bg-gray-100';
+
+        return `
+          <button onclick="switchRankingType('${key}')" id="${key}TabBtn"
+                  class="flex-1 px-6 py-3 rounded-xl font-medium transition-all ${activeClass}">
+            <i class="fas ${config.icon} mr-2"></i>${config.name}
+          </button>
+        `;
+      }).join('');
+    }
+
+    // 更新上传按钮样式和文字（跟随当前榜单）
+    function updateUploadButton() {
+      const config = getCurrentConfig();
+      const uploadBtn = document.getElementById('uploadBtn');
+      const uploadBtnText = document.getElementById('uploadBtnText');
+
+      if (uploadBtn && config) {
+        // 更新按钮渐变色
+        uploadBtn.className = `inline-flex items-center px-5 py-2.5 bg-gradient-to-r ${config.gradient} text-white rounded-xl cursor-pointer hover:opacity-90 transition-all shadow-lg shadow-${config.color}-500/25 hover:shadow-${config.color}-500/40 hover:scale-105`;
+      }
+      if (uploadBtnText && config) {
+        uploadBtnText.textContent = `上传${config.name}`;
+      }
+    }
+
+    // 处理当前榜单的上传（根据当前榜单类型分发）
+    function handleCurrentRankingUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const json = tryParseJson(e.target.result);
+
+          if (state.currentRankingType === 'traffic') {
+            // 流量榜使用原有逻辑
+            processJsonData(json);
+          } else {
+            // 其他榜单使用通用处理逻辑
+            processRankingData(state.currentRankingType, json);
+          }
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      };
+
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    // 通用榜单数据处理（适用于非主榜的榜单）
+    function processRankingData(rankingType, json) {
+      const config = RANKING_CONFIG[rankingType];
+
+      // 检测是否有 data 字段（支持包装格式）
+      const rawData = json.data || json;
+
+      // 如果是数组，说明是单月数据
+      if (Array.isArray(rawData)) {
+        const month = extractMonth(rawData[0]?.date);
+        if (!month) {
+          showToast('无法从数据中提取月份信息', 'error');
+          return;
+        }
+        processRankingMonthData(rankingType, month, rawData);
+        showToast(`${config.name} ${month} 数据导入成功，共 ${rawData.length} 条`);
+      } else if (typeof rawData === 'object') {
+        // 多月份数据
+        let totalCount = 0;
+        Object.entries(rawData).forEach(([month, data]) => {
+          if (Array.isArray(data)) {
+            processRankingMonthData(rankingType, month, data);
+            totalCount += data.length;
+          }
+        });
+        showToast(`${config.name}数据导入成功，共 ${totalCount} 条`);
+      }
+
+      // 保存到 localStorage
+      saveRankingToStorage(rankingType);
+
+      // 如果当前是该榜单视图，刷新显示
+      if (state.currentRankingType === rankingType) {
+        updateMonthSelect();
+        applyFiltersAndRender();
+      }
+    }
+
+    // 处理单个月份的榜单数据（通用逻辑，按上传顺序排名）
+    function processRankingMonthData(rankingType, month, data) {
+      const config = RANKING_CONFIG[rankingType];
+
+      // 获取上个月数据用于计算 change
+      const prevMonth = getPrevMonth(month);
+      const prevData = state.rankings[rankingType][prevMonth] || [];
+      const prevRankMap = {};
+      prevData.forEach(item => {
+        prevRankMap[item.handle] = item.rank;
+      });
+
+      // 为数据添加 rank 和 change
+      const processedData = data.map((item, index) => {
+        const rank = index + 1;  // 根据顺序生成排名
+        const prevRank = prevRankMap[item.handle];
+        const change = prevRank ? prevRank - rank : null;  // 上月排名 - 本月排名
+
+        return {
+          ...item,
+          rank,
+          change,
+          isNew: !prevRank
+        };
+      });
+
+      // 存储到对应榜单数据
+      state.rankings[rankingType][month] = processedData;
+
+      // 如果配置为同步到主榜
+      if (config.syncToMain) {
+        const mainType = getMainRankingType();
+        syncToMainRanking(mainType, month, processedData);
+      }
+    }
+
+    // 同步数据到主榜（只新增不存在的网站）
+    function syncToMainRanking(mainType, month, sourceData) {
+      if (!state.rankings[mainType][month]) {
+        state.rankings[mainType][month] = [];
+      }
+
+      const existingHandles = new Set(state.rankings[mainType][month].map(item => item.handle));
+      let addedCount = 0;
+
+      sourceData.forEach(item => {
+        if (!existingHandles.has(item.handle)) {
+          state.rankings[mainType][month].push({
+            ...item,
+            rank: null,
+            change: null
+          });
+          addedCount++;
+        }
+      });
+
+      if (addedCount > 0) {
+        recalculateRanks(month);
+        saveRankingToStorage(mainType);
+        console.log(`[榜单同步] ${month} 新增 ${addedCount} 个网站到${RANKING_CONFIG[mainType].name}`);
+      }
+    }
+
+    // 切换榜单类型
+    function switchRankingType(type) {
+      if (state.currentRankingType === type) return;
+
+      state.currentRankingType = type;
+      state.currentPage = 1;
+
+      // 重新渲染 Tabs 以更新选中状态
+      renderRankingTabs();
+
+      // 更新功能区按钮
+      updateUploadButton();
+
+      // 更新月份列表和数据
+      updateMonthSelect();
+      applyFiltersAndRender();
+      updateFavoritesButton();
+      updateNotesButton();
+    }
+
     // 打开粘贴弹窗
     function openPasteModal() {
       const modal = document.getElementById('pasteModal');
@@ -1417,14 +1749,16 @@
 
     // 下载 JSON 文件
     function handleDownload() {
-      if (!state.currentMonth || !state.allData[state.currentMonth]) {
+      const currentData = getCurrentData();
+      if (!state.currentMonth || !currentData[state.currentMonth]) {
         showToast('没有可下载的数据', 'error');
         return;
       }
 
       // 包含 data、当前月份的 favorites、以及全局 notes
+      const typePrefix = state.currentRankingType === 'revenue' ? 'revenue-' : '';
       const data = {
-        data: state.allData[state.currentMonth],
+        data: currentData[state.currentMonth],
         favorites: getCurrentMonthFavorites(),
         notes: state.notes
       };
@@ -1433,7 +1767,7 @@
 
       const a = document.createElement('a');
       a.href = url;
-      a.download = `website-ranking-${state.currentMonth}.json`;
+      a.download = `${typePrefix}website-ranking-${state.currentMonth}.json`;
       a.click();
 
       URL.revokeObjectURL(url);
@@ -1442,48 +1776,56 @@
 
     // 清空当前月份数据
     function handleClearCurrentMonth() {
-      if (!state.currentMonth || !state.allData[state.currentMonth]) {
+      const currentData = getCurrentData();
+      const isRevenue = state.currentRankingType === 'revenue';
+
+      if (!state.currentMonth || !currentData[state.currentMonth]) {
         showToast('没有可清空的数据');
         return;
       }
 
-      if (!confirm(`确定要清空 ${state.currentMonth} 的数据吗？此操作不可恢复。`)) {
+      const typeLabel = isRevenue ? '收入榜' : '总榜';
+      if (!confirm(`确定要清空 ${typeLabel} ${state.currentMonth} 的数据吗？此操作不可恢复。`)) {
         return;
       }
 
       const monthToDelete = state.currentMonth;
 
-      // 删除当前月份数据
-      delete state.allData[monthToDelete];
+      // 删除当前月份数据（根据当前榜单类型）
+      if (isRevenue) {
+        delete state.revenueData[monthToDelete];
+        saveRankingToStorage('revenue');
+      } else {
+        delete state.allData[monthToDelete];
+        // 迁移当前月份的收藏到其他月份
+        const favoritesToMigrate = state.favorites[monthToDelete] || [];
+        delete state.favorites[monthToDelete];
 
-      // 迁移当前月份的收藏到其他月份
-      const favoritesToMigrate = state.favorites[monthToDelete] || [];
-      delete state.favorites[monthToDelete];
-
-      if (favoritesToMigrate.length > 0) {
-        // 找到其他存在的月份（优先最近的）
-        const otherMonths = Object.keys(state.allData).sort().reverse();
-        if (otherMonths.length > 0) {
-          const targetMonth = otherMonths[0];
-          if (!state.favorites[targetMonth]) {
-            state.favorites[targetMonth] = [];
+        if (favoritesToMigrate.length > 0) {
+          // 找到其他存在的月份（优先最近的）
+          const otherMonths = Object.keys(state.allData).sort().reverse();
+          if (otherMonths.length > 0) {
+            const targetMonth = otherMonths[0];
+            if (!state.favorites[targetMonth]) {
+              state.favorites[targetMonth] = [];
+            }
+            // 合并收藏（去重）
+            const merged = [...new Set([...state.favorites[targetMonth], ...favoritesToMigrate])];
+            state.favorites[targetMonth] = merged;
           }
-          // 合并收藏（去重）
-          const merged = [...new Set([...state.favorites[targetMonth], ...favoritesToMigrate])];
-          state.favorites[targetMonth] = merged;
+          // 如果没有其他月份，收藏会丢失
         }
-        // 如果没有其他月份，收藏会丢失
+
+        saveFavoritesAndNotes();
       }
 
-      saveFavoritesAndNotes();
-
       // 切换到其他月份或清空
-      const months = Object.keys(state.allData).sort().reverse();
+      const updatedData = getCurrentData();
+      const months = Object.keys(updatedData).sort().reverse();
       state.currentMonth = months[0] || '';
 
       saveToStorage();
       updateMonthSelect();
-      updateHeaderStats();
       resetFiltersAndSort();
       applyFiltersAndRender();
       updateFavoritesButton();
@@ -1553,7 +1895,8 @@
     // 一键翻译处理
     async function handleTranslate() {
       const btn = document.getElementById('translateBtn');
-      const currentData = state.allData[state.currentMonth] || [];
+      const dataSource = getCurrentData();
+      const currentData = dataSource[state.currentMonth] || [];
 
       if (currentData.length === 0) {
         showToast('没有可翻译的数据');
@@ -2132,7 +2475,8 @@
 
     // 获取当前页面可见的备注数
     function getVisibleNotesCount() {
-      const sourceData = state.allData[state.currentMonth] || [];
+      const currentData = getCurrentData();
+      const sourceData = currentData[state.currentMonth] || [];
       return sourceData.filter(item => state.notes[item.handle]).length;
     }
 
@@ -2152,14 +2496,16 @@
 
     // 获取当前页面可见的收藏数（当前月份数据中有多少个被收藏）
     function getVisibleFavoritesCount() {
-      const sourceData = state.allData[state.currentMonth] || [];
+      const currentData = getCurrentData();
+      const sourceData = currentData[state.currentMonth] || [];
       const allFavs = getAllFavorites();
       return sourceData.filter(item => allFavs.includes(item.handle)).length;
     }
 
     // 获取上一个月份
     function getPreviousMonth(currentMonth) {
-      const months = Object.keys(state.allData).sort();
+      const currentData = getCurrentData();
+      const months = Object.keys(currentData).sort();
       const currentIndex = months.indexOf(currentMonth);
       if (currentIndex <= 0) return null;
       return months[currentIndex - 1];
@@ -2235,7 +2581,8 @@
 
     // 应用筛选和排序
     function applyFiltersAndRender() {
-      const sourceData = state.allData[state.currentMonth] || [];
+      const currentData = getCurrentData();
+      const sourceData = currentData[state.currentMonth] || [];
 
       // 1. 搜索过滤
       let filtered = sourceData.filter(item => {
@@ -2399,17 +2746,29 @@
 
       // 获取排名变化数据
       const rankChangeMap = getRankChangeMap();
+      const isRevenue = state.currentRankingType === 'revenue';
 
-      // 计算基于 Growth 的排名 Map（当前月份全部数据按 Growth 降序的排名，不受筛选影响）
-      const growthRankMap = {};
-      const allMonthData = state.allData[state.currentMonth] || [];
-      [...allMonthData].sort((a, b) => b.growth - a.growth).forEach((item, index) => {
-        growthRankMap[item.handle] = index + 1;
-      });
+      // 计算排名 Map
+      // 收入榜使用数据中的 rank 字段（基于 JSON 顺序），总榜使用 Growth 排名
+      const rankMap = {};
+      const currentDataSource = getCurrentData();
+      const allMonthData = currentDataSource[state.currentMonth] || [];
+
+      if (isRevenue) {
+        // 收入榜：直接使用数据中的 rank 字段
+        allMonthData.forEach(item => {
+          rankMap[item.handle] = item.rank;
+        });
+      } else {
+        // 总榜：按 growth 降序计算排名
+        [...allMonthData].sort((a, b) => b.growth - a.growth).forEach((item, index) => {
+          rankMap[item.handle] = index + 1;
+        });
+      }
 
       tbody.innerHTML = pageData.map((item, index) => {
-        // # 编号始终显示 Growth 排名
-        const rank = growthRankMap[item.handle] || (start + index + 1);
+        // 收入榜使用原始 rank，总榜使用 growth 排名
+        const rank = isRevenue ? (item.rank || (start + index + 1)) : (rankMap[item.handle] || (start + index + 1));
         const tags = (item.tags || []).slice(0, 4);
 
         // 排名徽章样式
@@ -2574,20 +2933,23 @@
 
     // ==================== 初始化 ====================
     document.addEventListener('DOMContentLoaded', async function() {
-      // 加载数据优先级：
-      // - 静态托管环境（如 GitHub Pages）：直接从静态 JSON 文件加载
-      // - 本地开发环境：服务器 API > 静态 JSON 文件 > localStorage
-      if (isStaticHosting) {
-        console.log('[启动] 检测到静态托管环境，从静态文件加载数据');
-        await loadFromStaticFiles();
-      } else {
-        const serverLoaded = await loadFromServer();
-        if (!serverLoaded) {
-          // 服务器未连接，尝试从静态文件加载
-          await loadFromStaticFiles();
-        }
-      }
+      // 渲染动态 UI 组件
+      renderRankingTabs();
+      updateUploadButton();
+
+      // 直接从静态文件加载数据（适用于所有环境）
+      // API 服务器仅用于保存数据，不用于加载
+      console.log('[启动] 从静态文件加载数据');
+      await loadFromStaticFiles();
       loadFromStorage();
+
+      // 加载所有非主榜的榜单数据
+      Object.keys(RANKING_CONFIG).forEach(type => {
+        if (!RANKING_CONFIG[type].isMain) {
+          loadRankingFromStorage(type);
+        }
+      });
+
       updateFavoritesButton();
       updateNotesButton();
       updateTrendViewButton();
