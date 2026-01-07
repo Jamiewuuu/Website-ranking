@@ -57,16 +57,23 @@
             <p class="text-sm text-gray-500">AI 网站流量增长排名</p>
           </div>
         </div>
-        <div class="hidden md:flex items-center gap-2 text-sm text-gray-500">
-          <i class="fas fa-database"></i>
-          <span id="headerStats">数据统计</span>
+        <div class="flex items-center gap-4">
+          <div class="hidden md:flex items-center gap-2 text-sm text-gray-500">
+            <i class="fas fa-database"></i>
+            <span id="headerStats">数据统计</span>
+          </div>
+          <button onclick="togglePersonalCenter()" id="personalCenterBtn" class="inline-flex items-center px-4 py-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-gray-200">
+            <i class="fas fa-user mr-2"></i>
+            <span>个人中心</span>
+          </button>
         </div>
       </div>
     </div>
   </header>
   <!-- /Component: Header -->
 
-  <main class="max-w-8xl mx-auto px-6 py-8">
+  <!-- 主视图：榜单 -->
+  <main id="mainView" class="max-w-8xl mx-auto px-6 py-8">
     <div class="flex flex-col lg:flex-row gap-8">
 
       <!-- Component: MonthSidebar -->
@@ -348,6 +355,119 @@
     </div>
   </main>
 
+  <!-- 个人中心视图 -->
+  <main id="personalCenterView" class="max-w-8xl mx-auto px-6 py-8 hidden">
+    <div class="flex flex-col lg:flex-row gap-8">
+
+      <!-- 左侧：月份筛选 -->
+      <aside class="lg:w-52 flex-shrink-0">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 overflow-hidden lg:sticky lg:top-24">
+          <div class="p-4 bg-gradient-to-r from-indigo-600 to-purple-600">
+            <div class="flex items-center gap-2 text-white">
+              <i class="fas fa-filter"></i>
+              <span class="font-semibold">筛选月份</span>
+            </div>
+          </div>
+          <div id="pcMonthList" class="max-h-96 overflow-y-auto">
+            <!-- 月份列表由 JS 动态渲染 -->
+          </div>
+        </div>
+      </aside>
+
+      <!-- 右侧主内容区 -->
+      <div class="flex-1 min-w-0">
+
+        <!-- 页面标题和 Tab 筛选 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 p-5 mb-6">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                <i class="fas fa-user text-white text-lg"></i>
+              </div>
+              <div>
+                <h2 class="text-lg font-bold text-gray-900">个人中心</h2>
+                <p class="text-sm text-gray-500">管理你的收藏和备注</p>
+              </div>
+            </div>
+            <!-- Tab 筛选 -->
+            <div class="flex items-center gap-2 bg-gray-100 rounded-xl p-1">
+              <button onclick="setPCTab('all')" id="pcTabAll" class="px-4 py-2 text-sm font-medium rounded-lg transition-all bg-white text-indigo-600 shadow-sm">
+                全部
+              </button>
+              <button onclick="setPCTab('favorites')" id="pcTabFavorites" class="px-4 py-2 text-sm font-medium rounded-lg transition-all text-gray-600 hover:text-indigo-600">
+                <i class="fas fa-heart text-pink-500 mr-1.5"></i>收藏
+              </button>
+              <button onclick="setPCTab('notes')" id="pcTabNotes" class="px-4 py-2 text-sm font-medium rounded-lg transition-all text-gray-600 hover:text-indigo-600">
+                <i class="fas fa-sticky-note text-yellow-500 mr-1.5"></i>备注
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-5 px-1">
+          <div id="pcStatsInfo" class="flex items-center gap-2 text-sm text-gray-500">
+            <i class="fas fa-database text-gray-400"></i>
+            共 0 条
+          </div>
+          <div id="pcPageInfo" class="flex items-center gap-2 mt-2 md:mt-0 text-sm text-gray-500">
+            <!-- 分页信息在这里动态渲染 -->
+          </div>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-200/50 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead>
+                <tr class="bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-200">
+                  <th class="px-5 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">#</th>
+                  <th class="px-5 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <span class="flex items-center gap-2">
+                      <i class="fas fa-globe text-cyan-400"></i>
+                      WEB
+                    </span>
+                  </th>
+                  <th class="px-5 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <span class="flex items-center gap-2">
+                      <i class="fas fa-calendar text-blue-400"></i>
+                      首次上榜
+                    </span>
+                  </th>
+                  <th class="px-5 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">
+                    <i class="fas fa-sticky-note text-yellow-400"></i>
+                  </th>
+                  <th class="px-5 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">
+                    <i class="fas fa-heart text-pink-400"></i>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="pcTableBody" class="divide-y divide-gray-100">
+                <!-- 数据行在这里动态渲染 -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 空状态 -->
+          <div id="pcEmptyState" class="py-20 text-center">
+            <div class="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-5">
+              <i class="fas fa-inbox text-3xl text-gray-400"></i>
+            </div>
+            <p class="text-gray-500 mb-2">暂无数据</p>
+            <p class="text-sm text-gray-400">你还没有收藏或备注任何网站</p>
+          </div>
+        </div>
+
+        <!-- 分页 -->
+        <div id="pcPagination" class="flex items-center justify-center gap-2 mt-8">
+          <!-- 分页按钮在这里动态渲染 -->
+        </div>
+
+      </div>
+    </div>
+  </main>
+  <!-- /个人中心视图 -->
+
   <!-- Component: PasteModal -->
   <div id="pasteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col transform scale-95 transition-transform duration-300" id="pasteModalContent">
@@ -520,7 +640,13 @@
       translations: {},  // 翻译缓存 { "原文": "译文" }
       isTranslated: false,  // 是否已翻译
       notes: JSON.parse(localStorage.getItem('notes') || '{}'),  // 备注 { "handle": "备注内容" }
-      showTrendView: localStorage.getItem('showTrendView') === 'true'  // 是否展开趋势视图
+      showTrendView: localStorage.getItem('showTrendView') === 'true',  // 是否展开趋势视图
+      // 个人中心状态
+      showPersonalCenter: false,  // 是否显示个人中心
+      pcTab: 'all',  // 个人中心当前 Tab: 'all' | 'favorites' | 'notes'
+      pcMonth: 'all',  // 个人中心月份筛选: 'all' | '2025-11' | ...
+      pcFilteredData: [],  // 个人中心筛选后的数据
+      pcCurrentPage: 1  // 个人中心当前页码
     };
 
     // ==================== 工具函数 ====================
@@ -1403,6 +1529,10 @@
       saveFavoritesAndNotes();
       closeNoteModal();
       renderTable();
+      // 如果在个人中心视图，刷新个人中心
+      if (state.showPersonalCenter) {
+        applyPCFiltersAndRender();
+      }
       showToast(note ? '备注已保存' : '备注已清空');
     }
 
@@ -1412,6 +1542,10 @@
       saveFavoritesAndNotes();
       closeNoteModal();
       renderTable();
+      // 如果在个人中心视图，刷新个人中心
+      if (state.showPersonalCenter) {
+        applyPCFiltersAndRender();
+      }
       showToast('备注已删除');
     }
 
@@ -2602,6 +2736,415 @@
         closeMonthSelectModal();
       }
     });
+
+    // ==================== 个人中心功能 ====================
+
+    // 切换个人中心视图
+    function togglePersonalCenter() {
+      state.showPersonalCenter = !state.showPersonalCenter;
+      const mainView = document.getElementById('mainView');
+      const pcView = document.getElementById('personalCenterView');
+      const pcBtn = document.getElementById('personalCenterBtn');
+
+      if (state.showPersonalCenter) {
+        mainView.classList.add('hidden');
+        pcView.classList.remove('hidden');
+        pcBtn.classList.add('bg-indigo-50', 'text-indigo-600', 'border-indigo-200');
+        pcBtn.classList.remove('text-gray-600', 'border-gray-200');
+        pcBtn.innerHTML = '<i class="fas fa-arrow-left mr-2"></i><span>返回榜单</span>';
+        // 进入个人中心时刷新数据
+        renderPersonalCenter();
+      } else {
+        mainView.classList.remove('hidden');
+        pcView.classList.add('hidden');
+        pcBtn.classList.remove('bg-indigo-50', 'text-indigo-600', 'border-indigo-200');
+        pcBtn.classList.add('text-gray-600', 'border-gray-200');
+        pcBtn.innerHTML = '<i class="fas fa-user mr-2"></i><span>个人中心</span>';
+      }
+    }
+
+    // 设置个人中心 Tab
+    function setPCTab(tab) {
+      state.pcTab = tab;
+      state.pcCurrentPage = 1;
+      updatePCTabUI();
+      applyPCFiltersAndRender();
+    }
+
+    // 更新 Tab UI
+    function updatePCTabUI() {
+      const tabs = ['all', 'favorites', 'notes'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`pcTab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (t === state.pcTab) {
+          btn.classList.add('bg-white', 'text-indigo-600', 'shadow-sm');
+          btn.classList.remove('text-gray-600');
+        } else {
+          btn.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm');
+          btn.classList.add('text-gray-600');
+        }
+      });
+    }
+
+    // 设置个人中心月份筛选
+    function setPCMonth(month) {
+      state.pcMonth = month;
+      state.pcCurrentPage = 1;
+      updatePCMonthListUI();
+      applyPCFiltersAndRender();
+    }
+
+    // 渲染个人中心
+    function renderPersonalCenter() {
+      updatePCMonthList();
+      updatePCTabUI();
+      applyPCFiltersAndRender();
+    }
+
+    // 更新个人中心月份列表
+    function updatePCMonthList() {
+      const monthList = document.getElementById('pcMonthList');
+
+      // 获取每个网站最早出现的月份
+      const handleToEarliestMonth = getHandleEarliestMonth();
+
+      // 收集所有收藏和备注的网站
+      const allFavorites = getAllFavorites();
+      const noteHandles = Object.keys(state.notes);
+      const allHandles = new Set([...allFavorites, ...noteHandles]);
+
+      // 统计每个月份有多少收藏/备注的网站首次上榜
+      const monthCounts = {};
+      let totalCount = 0;
+      allHandles.forEach(h => {
+        const earliestMonth = handleToEarliestMonth.get(h);
+        if (earliestMonth) {
+          monthCounts[earliestMonth] = (monthCounts[earliestMonth] || 0) + 1;
+          totalCount++;
+        }
+      });
+
+      // 获取有数据的月份（从 monthCounts 获取，只显示有收藏/备注的月份）
+      const allMonths = Object.keys(monthCounts).sort().reverse();
+
+      let html = `
+        <button onclick="setPCMonth('all')"
+                data-month="all"
+                class="w-full px-4 py-3 text-left transition-all ${
+                  state.pcMonth === 'all'
+                    ? 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 border-l-4 border-indigo-600'
+                    : 'text-gray-600 hover:bg-gray-50 border-l-4 border-transparent'
+                }">
+          <div class="font-medium">全部</div>
+          <div class="text-xs ${state.pcMonth === 'all' ? 'text-indigo-500' : 'text-gray-400'} mt-0.5">${totalCount} 条</div>
+        </button>
+      `;
+
+      if (allMonths.length === 0) {
+        html += `
+          <div class="p-4 text-sm text-gray-400 text-center">
+            <p>暂无数据</p>
+          </div>
+        `;
+      } else {
+        html += allMonths.map(m => {
+          const isActive = m === state.pcMonth;
+          const count = monthCounts[m] || 0;
+          return `
+            <button onclick="setPCMonth('${m}')"
+                    data-month="${m}"
+                    class="w-full px-4 py-3 text-left transition-all ${
+                      isActive
+                        ? 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 border-l-4 border-indigo-600'
+                        : 'text-gray-600 hover:bg-gray-50 border-l-4 border-transparent'
+                    }">
+              <div class="font-medium">${m}</div>
+              <div class="text-xs ${isActive ? 'text-indigo-500' : 'text-gray-400'} mt-0.5">${count} 条</div>
+            </button>
+          `;
+        }).join('');
+      }
+
+      monthList.innerHTML = html;
+    }
+
+    // 更新月份列表 UI（仅更新选中状态）
+    function updatePCMonthListUI() {
+      const buttons = document.querySelectorAll('#pcMonthList button[data-month]');
+      buttons.forEach(btn => {
+        const month = btn.dataset.month;
+        const isActive = month === state.pcMonth;
+        if (isActive) {
+          btn.classList.add('bg-gradient-to-r', 'from-indigo-50', 'to-purple-50', 'text-indigo-700', 'border-indigo-600');
+          btn.classList.remove('text-gray-600', 'hover:bg-gray-50', 'border-transparent');
+          btn.querySelector('.text-xs').classList.add('text-indigo-500');
+          btn.querySelector('.text-xs').classList.remove('text-gray-400');
+        } else {
+          btn.classList.remove('bg-gradient-to-r', 'from-indigo-50', 'to-purple-50', 'text-indigo-700', 'border-indigo-600');
+          btn.classList.add('text-gray-600', 'hover:bg-gray-50', 'border-transparent');
+          btn.querySelector('.text-xs').classList.remove('text-indigo-500');
+          btn.querySelector('.text-xs').classList.add('text-gray-400');
+        }
+      });
+    }
+
+    // 获取每个网站最早出现的月份
+    function getHandleEarliestMonth() {
+      const handleToEarliestMonth = new Map();
+      // 按月份从早到晚排序
+      const sortedMonths = Object.keys(state.allData).sort();
+      sortedMonths.forEach(month => {
+        (state.allData[month] || []).forEach(item => {
+          // 只记录最早出现的月份
+          if (!handleToEarliestMonth.has(item.handle)) {
+            handleToEarliestMonth.set(item.handle, month);
+          }
+        });
+      });
+      return handleToEarliestMonth;
+    }
+
+    // 应用个人中心筛选并渲染
+    function applyPCFiltersAndRender() {
+      // 收集所有收藏和备注的网站
+      const allFavorites = getAllFavorites();
+      const noteHandles = Object.keys(state.notes);
+
+      // 获取所有需要显示的 handle
+      let handleSet = new Set();
+
+      if (state.pcTab === 'all') {
+        // 全部：收藏 + 备注
+        allFavorites.forEach(h => handleSet.add(h));
+        noteHandles.forEach(h => handleSet.add(h));
+      } else if (state.pcTab === 'favorites') {
+        // 只显示收藏
+        allFavorites.forEach(h => handleSet.add(h));
+      } else if (state.pcTab === 'notes') {
+        // 只显示有备注的
+        noteHandles.forEach(h => handleSet.add(h));
+      }
+
+      // 获取每个网站最早出现的月份
+      const handleToEarliestMonth = getHandleEarliestMonth();
+
+      // 按最早出现的月份筛选
+      if (state.pcMonth !== 'all') {
+        const filtered = new Set();
+        handleSet.forEach(h => {
+          const earliestMonth = handleToEarliestMonth.get(h);
+          if (earliestMonth === state.pcMonth) {
+            filtered.add(h);
+          }
+        });
+        handleSet = filtered;
+      }
+
+      // 从 allData 中查找这些网站的详细信息
+      const handleToInfo = new Map();
+
+      // 从各月份数据中查找详细信息（取最早月份的数据）
+      const sortedMonths = Object.keys(state.allData).sort();
+      sortedMonths.forEach(month => {
+        (state.allData[month] || []).forEach(item => {
+          if (handleSet.has(item.handle) && !handleToInfo.has(item.handle)) {
+            handleToInfo.set(item.handle, {
+              ...item,
+              earliestMonth: month
+            });
+          }
+        });
+      });
+
+      // 对于只有备注但没有在 allData 中找到的 handle，创建简单的占位信息
+      handleSet.forEach(h => {
+        if (!handleToInfo.has(h)) {
+          handleToInfo.set(h, {
+            handle: h,
+            name: h,
+            description: '',
+            tags: [],
+            earliestMonth: '-'
+          });
+        }
+      });
+
+      // 转换为数组并按最早出现月份排序（最新的在前）
+      state.pcFilteredData = Array.from(handleToInfo.values()).sort((a, b) => {
+        const aMonth = (a.earliestMonth || '0000-00');
+        const bMonth = (b.earliestMonth || '0000-00');
+        return bMonth.localeCompare(aMonth);
+      });
+
+      renderPCStats();
+      renderPCTable();
+      renderPCPagination();
+    }
+
+    // 渲染个人中心统计
+    function renderPCStats() {
+      const statsInfo = document.getElementById('pcStatsInfo');
+      const total = state.pcFilteredData.length;
+
+      statsInfo.innerHTML = `
+        <i class="fas fa-database text-gray-400"></i>
+        共 ${total} 条
+      `;
+    }
+
+    // 渲染个人中心表格
+    function renderPCTable() {
+      const tbody = document.getElementById('pcTableBody');
+      const emptyState = document.getElementById('pcEmptyState');
+
+      const start = (state.pcCurrentPage - 1) * PAGE_SIZE;
+      const end = start + PAGE_SIZE;
+      const pageData = state.pcFilteredData.slice(start, end);
+
+      if (pageData.length === 0) {
+        tbody.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+
+      tbody.innerHTML = pageData.map((item, index) => {
+        const rank = start + index + 1;
+        const tags = (item.tags || []).slice(0, 4);
+        const noteContent = state.notes[item.handle] || '';
+
+        return `
+          <tr class="hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-purple-50/50 transition-all group">
+            <td class="px-5 py-4">
+              <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 font-semibold text-sm">${rank}</div>
+            </td>
+            <td class="px-5 py-4">
+              <div class="flex flex-col">
+                <a href="https://www.toolify.ai/tool/${encodeURIComponent(item.handle)}" target="_blank" rel="noopener noreferrer" class="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors hover:underline">${escapeHtml(item.name)}</a>
+                <span class="text-sm text-gray-500 mt-1 line-clamp-2">${escapeHtml(getTranslatedText(item.description) || '')}</span>
+                ${tags.length > 0 ? `
+                  <div class="flex flex-wrap gap-1.5 mt-2">
+                    ${tags.map(tag => `
+                      <span class="inline-block px-2.5 py-1 text-xs bg-gradient-to-r from-gray-100 to-gray-50 text-gray-600 rounded-full border border-gray-200/50">${escapeHtml(getTranslatedText(tag))}</span>
+                    `).join('')}
+                  </div>
+                ` : ''}
+                ${noteContent ? `
+                  <div onclick="openNoteModal('${escapeHtml(item.handle)}', '${escapeHtml(item.name)}')"
+                       class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors">
+                    <div class="flex items-start gap-2">
+                      <i class="fas fa-sticky-note text-yellow-500 mt-0.5"></i>
+                      <span class="text-sm text-gray-700 flex-1">${escapeHtml(noteContent)}</span>
+                      <i class="fas fa-edit text-gray-400 hover:text-yellow-600 text-xs mt-0.5"></i>
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            </td>
+            <td class="px-5 py-4">
+              <span class="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs font-medium">${item.earliestMonth || '-'}</span>
+            </td>
+            <td class="px-5 py-4 text-center">
+              <button onclick="openNoteModal('${escapeHtml(item.handle)}', '${escapeHtml(item.name)}')"
+                      class="w-8 h-8 flex items-center justify-center rounded-full transition-all ${noteContent ? 'text-yellow-500 bg-yellow-50 hover:bg-yellow-100' : 'text-gray-300 hover:text-yellow-400 hover:bg-yellow-50'}"
+                      title="${noteContent ? '编辑备注' : '添加备注'}">
+                <i class="${noteContent ? 'fas' : 'far'} fa-sticky-note"></i>
+              </button>
+            </td>
+            <td class="px-5 py-4 text-center">
+              <button onclick="toggleFavoriteInPC('${escapeHtml(item.handle)}')" class="w-8 h-8 flex items-center justify-center rounded-full transition-all ${isFavorite(item.handle) ? 'text-pink-500 bg-pink-50 hover:bg-pink-100' : 'text-gray-300 hover:text-pink-400 hover:bg-pink-50'}">
+                <i class="${isFavorite(item.handle) ? 'fas' : 'far'} fa-heart"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // 在个人中心中切换收藏（需要刷新视图）
+    function toggleFavoriteInPC(handle) {
+      toggleFavorite(handle);
+      // 刷新个人中心视图
+      updatePCMonthList();
+      applyPCFiltersAndRender();
+    }
+
+    // 渲染个人中心分页
+    function renderPCPagination() {
+      const pagination = document.getElementById('pcPagination');
+      const totalPages = Math.ceil(state.pcFilteredData.length / PAGE_SIZE);
+
+      if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+      }
+
+      let html = '';
+
+      // 上一页按钮
+      html += `
+        <button onclick="handlePCPageChange(${state.pcCurrentPage - 1})"
+                class="w-10 h-10 rounded-xl flex items-center justify-center ${state.pcCurrentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'} transition"
+                ${state.pcCurrentPage === 1 ? 'disabled' : ''}>
+          <i class="fas fa-chevron-left"></i>
+        </button>
+      `;
+
+      // 页码按钮
+      const maxButtons = 5;
+      let startPage = Math.max(1, state.pcCurrentPage - Math.floor(maxButtons / 2));
+      let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+      if (endPage - startPage < maxButtons - 1) {
+        startPage = Math.max(1, endPage - maxButtons + 1);
+      }
+
+      if (startPage > 1) {
+        html += `<button onclick="handlePCPageChange(1)" class="w-10 h-10 rounded-xl flex items-center justify-center text-gray-600 hover:bg-gray-100 transition">1</button>`;
+        if (startPage > 2) {
+          html += `<span class="px-2 text-gray-400">...</span>`;
+        }
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        html += `
+          <button onclick="handlePCPageChange(${i})"
+                  class="w-10 h-10 rounded-xl flex items-center justify-center transition font-medium ${i === state.pcCurrentPage ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25' : 'text-gray-600 hover:bg-gray-100'}">
+            ${i}
+          </button>
+        `;
+      }
+
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          html += `<span class="px-2 text-gray-400">...</span>`;
+        }
+        html += `<button onclick="handlePCPageChange(${totalPages})" class="w-10 h-10 rounded-xl flex items-center justify-center text-gray-600 hover:bg-gray-100 transition">${totalPages}</button>`;
+      }
+
+      // 下一页按钮
+      html += `
+        <button onclick="handlePCPageChange(${state.pcCurrentPage + 1})"
+                class="w-10 h-10 rounded-xl flex items-center justify-center ${state.pcCurrentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'} transition"
+                ${state.pcCurrentPage === totalPages ? 'disabled' : ''}>
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      `;
+
+      pagination.innerHTML = html;
+    }
+
+    // 处理个人中心分页变化
+    function handlePCPageChange(page) {
+      const totalPages = Math.ceil(state.pcFilteredData.length / PAGE_SIZE);
+      if (page < 1 || page > totalPages) return;
+      state.pcCurrentPage = page;
+      renderPCTable();
+      renderPCPagination();
+      // 滚动到顶部
+      document.getElementById('personalCenterView').scrollIntoView({ behavior: 'smooth' });
+    }
   </script>
 
 </body>
