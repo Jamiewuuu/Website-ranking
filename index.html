@@ -922,6 +922,11 @@
       try {
         const storageKey = getStorageKey(rankingType);
         localStorage.setItem(storageKey, JSON.stringify(state.rankings[rankingType]));
+
+        // 流量榜同时保存到服务器文件
+        if (rankingType === 'traffic') {
+          saveToServer();
+        }
       } catch (e) {
         console.error(`保存${RANKING_CONFIG[rankingType].name}数据失败:`, e);
         showToast('保存数据失败，可能存储空间不足', 'error');
@@ -1207,9 +1212,54 @@
       const fullMonth = `${year}-${month}`;
 
       if (pendingJsonData) {
-        processJsonDataWithMonth(pendingJsonData, fullMonth);
+        // 检查是否是非主榜数据
+        if (pendingRankingType && pendingRankingType !== 'traffic') {
+          const config = RANKING_CONFIG[pendingRankingType];
+          processRankingMonthData(pendingRankingType, fullMonth, pendingJsonData);
+          saveRankingToStorage(pendingRankingType);
+          if (state.currentRankingType === pendingRankingType) {
+            updateMonthSelect();
+            applyFiltersAndRender();
+          }
+          showToast(`${config.name} ${fullMonth} 数据导入成功，共 ${pendingJsonData.length} 条`);
+          pendingRankingType = null;
+        } else {
+          processJsonDataWithMonth(pendingJsonData, fullMonth);
+        }
         closeMonthSelectModal();
       }
+    }
+
+    // 为非主榜打开月份选择弹窗
+    let pendingRankingType = null;
+    function openMonthSelectModalForRanking(rankingType, data) {
+      pendingRankingType = rankingType;
+      pendingJsonData = data;
+      const modal = document.getElementById('monthSelectModal');
+      const content = document.getElementById('monthSelectModalContent');
+      const yearSelect = document.getElementById('monthSelectYear');
+      const monthSelect = document.getElementById('monthSelectMonth');
+
+      // 生成年份选项
+      const currentYear = new Date().getFullYear();
+      yearSelect.innerHTML = '';
+      for (let y = currentYear + 1; y >= 2020; y--) {
+        const option = document.createElement('option');
+        option.value = y;
+        option.textContent = y;
+        yearSelect.appendChild(option);
+      }
+
+      // 默认选中当前系统月份
+      const now = new Date();
+      yearSelect.value = now.getFullYear().toString();
+      monthSelect.value = String(now.getMonth() + 1).padStart(2, '0');
+
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        content.classList.remove('scale-95');
+      }, 10);
     }
 
     // 处理 JSON 数据（共用逻辑）
@@ -1688,7 +1738,8 @@
       if (Array.isArray(rawData)) {
         const month = extractMonth(rawData[0]?.date);
         if (!month) {
-          showToast('无法从数据中提取月份信息', 'error');
+          // 没有月份，弹窗让用户选择（和流量榜一致）
+          openMonthSelectModalForRanking(rankingType, rawData);
           return;
         }
         processRankingMonthData(rankingType, month, rawData);
@@ -1753,10 +1804,20 @@
 
     // 同步数据到主榜（只新增不存在的网站）
     function syncToMainRanking(mainType, month, sourceData) {
-      if (!state.rankings[mainType][month]) {
-        state.rankings[mainType][month] = [];
+      // 如果主榜该月份没有数据，全部同步
+      if (!state.rankings[mainType][month] || state.rankings[mainType][month].length === 0) {
+        state.rankings[mainType][month] = sourceData.map(item => ({
+          ...item,
+          rank: null,
+          change: null
+        }));
+        recalculateRanks(month);
+        saveRankingToStorage(mainType);
+        console.log(`[榜单同步] ${month} 全部同步 ${sourceData.length} 个网站到${RANKING_CONFIG[mainType].name}`);
+        return;
       }
 
+      // 主榜有数据，只添加不存在的网站
       const existingHandles = new Set(state.rankings[mainType][month].map(item => item.handle));
       let addedCount = 0;
 
@@ -2248,8 +2309,15 @@
     // 重置筛选和排序状态
     function resetFiltersAndSort() {
       state.searchKeyword = '';
-      state.sortField = 'growth';
-      state.sortOrder = 'desc';
+      // 根据榜单类型设置默认排序
+      // 流量榜：按 growth 降序；收入榜：按 rank 升序（JSON 顺序）
+      if (state.currentRankingType === 'revenue') {
+        state.sortField = 'rank';
+        state.sortOrder = 'asc';
+      } else {
+        state.sortField = 'growth';
+        state.sortOrder = 'desc';
+      }
       state.currentPage = 1;
       state.showFavoritesOnly = false;
       state.filters = {
@@ -2772,7 +2840,8 @@
       // 1. 搜索过滤
       let filtered = sourceData.filter(item => {
         if (state.searchKeyword) {
-          return item.name.toLowerCase().includes(state.searchKeyword);
+          const name = item.website_name || item.name || '';
+          return name.toLowerCase().includes(state.searchKeyword);
         }
         return true;
       });
@@ -2885,8 +2954,8 @@
         } else if (state.sortField === 'name') {
           // 按名称首字母排序
           filtered.sort((a, b) => {
-            const aVal = (a.name || '').toLowerCase();
-            const bVal = (b.name || '').toLowerCase();
+            const aVal = (a.website_name || a.name || '').toLowerCase();
+            const bVal = (b.website_name || b.name || '').toLowerCase();
 
             if (state.sortOrder === 'asc') {
               return aVal.localeCompare(bVal);
@@ -2997,7 +3066,7 @@
             <td class="px-5 py-4">${rankBadge}</td>
             <td class="px-5 py-4">
               <div class="flex flex-col">
-                <a href="https://www.toolify.ai/tool/${encodeURIComponent(item.handle)}" target="_blank" rel="noopener noreferrer" data-field="item.name" class="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors hover:underline">${escapeHtml(item.name)}</a>
+                <a href="https://www.toolify.ai/tool/${encodeURIComponent(item.handle)}" target="_blank" rel="noopener noreferrer" data-field="item.name" class="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors hover:underline">${escapeHtml(item.website_name || item.name)}</a>
                 <span data-field="item.description" class="text-sm text-gray-500 mt-1 line-clamp-2">${escapeHtml(getTranslatedText(item.description) || '')}</span>
                 ${tags.length > 0 ? `
                   <div class="flex flex-wrap gap-1.5 mt-2">
@@ -3028,7 +3097,7 @@
               ${changeHtml}
             </td>
             <td class="px-5 py-4 text-center">
-              <button onclick="openNoteModal('${escapeHtml(item.handle)}', '${escapeHtml(item.name)}')"
+              <button onclick="openNoteModal('${escapeHtml(item.handle)}', '${escapeHtml(item.website_name || item.name)}')"
                       class="w-8 h-8 flex items-center justify-center rounded-full transition-all relative group/note ${state.notes[item.handle] ? 'text-yellow-500 bg-yellow-50 hover:bg-yellow-100' : 'text-gray-300 hover:text-yellow-400 hover:bg-yellow-50'}"
                       title="${state.notes[item.handle] ? escapeHtml(state.notes[item.handle]) : '添加备注'}">
                 <i class="${state.notes[item.handle] ? 'fas' : 'far'} fa-sticky-note"></i>
@@ -3450,7 +3519,7 @@
             </td>
             <td class="px-5 py-4">
               <div class="flex flex-col">
-                <a href="https://www.toolify.ai/tool/${encodeURIComponent(item.handle)}" target="_blank" rel="noopener noreferrer" class="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors hover:underline">${escapeHtml(item.name)}</a>
+                <a href="https://www.toolify.ai/tool/${encodeURIComponent(item.handle)}" target="_blank" rel="noopener noreferrer" class="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors hover:underline">${escapeHtml(item.website_name || item.name)}</a>
                 <span class="text-sm text-gray-500 mt-1 line-clamp-2">${escapeHtml(getTranslatedText(item.description) || '')}</span>
                 ${tags.length > 0 ? `
                   <div class="flex flex-wrap gap-1.5 mt-2">
@@ -3460,7 +3529,7 @@
                   </div>
                 ` : ''}
                 ${noteContent ? `
-                  <div onclick="openNoteModal('${escapeHtml(item.handle)}', '${escapeHtml(item.name)}')"
+                  <div onclick="openNoteModal('${escapeHtml(item.handle)}', '${escapeHtml(item.website_name || item.name)}')"
                        class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors">
                     <div class="flex items-start gap-2">
                       <i class="fas fa-sticky-note text-yellow-500 mt-0.5"></i>
@@ -3475,7 +3544,7 @@
               <span class="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs font-medium">${item.earliestMonth || '-'}</span>
             </td>
             <td class="px-5 py-4 text-center">
-              <button onclick="openNoteModal('${escapeHtml(item.handle)}', '${escapeHtml(item.name)}')"
+              <button onclick="openNoteModal('${escapeHtml(item.handle)}', '${escapeHtml(item.website_name || item.name)}')"
                       class="w-8 h-8 flex items-center justify-center rounded-full transition-all ${noteContent ? 'text-yellow-500 bg-yellow-50 hover:bg-yellow-100' : 'text-gray-300 hover:text-yellow-400 hover:bg-yellow-50'}"
                       title="${noteContent ? '编辑备注' : '添加备注'}">
                 <i class="${noteContent ? 'fas' : 'far'} fa-sticky-note"></i>
