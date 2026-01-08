@@ -1332,6 +1332,11 @@
           normalized.description = item.what_is_summary || '';
         }
 
+        // website_name：标准化网站名称字段
+        if (!normalized.website_name) {
+          normalized.website_name = item.name || '';
+        }
+
         return normalized;
       });
 
@@ -1778,14 +1783,18 @@
         prevRankMap[item.handle] = item.rank;
       });
 
-      // 为数据添加 rank 和 change
+      // 为数据添加 rank 和 change，并标准化字段
       const processedData = data.map((item, index) => {
         const rank = index + 1;  // 根据顺序生成排名
         const prevRank = prevRankMap[item.handle];
         const change = prevRank ? prevRank - rank : null;  // 上月排名 - 本月排名
 
+        // 标准化 website_name 字段：如果没有 website_name，使用 name
+        const websiteName = item.website_name || item.name || '';
+
         return {
           ...item,
+          website_name: websiteName,
           rank,
           change,
           isNew: !prevRank
