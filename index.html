@@ -1791,6 +1791,9 @@
       // 更新功能区按钮
       updateUploadButton();
 
+      // 重置筛选和排序状态，避免影响新榜单的显示
+      resetFiltersAndSort();
+
       // 更新月份列表和数据
       updateMonthSelect();
       applyFiltersAndRender();
@@ -1833,7 +1836,14 @@
 
       try {
         const json = tryParseJson(content);
-        processJsonData(json);
+
+        // 根据当前榜单类型选择处理函数
+        if (state.currentRankingType === 'traffic') {
+          processJsonData(json);
+        } else {
+          processRankingData(state.currentRankingType, json);
+        }
+
         closePasteModal();
       } catch (err) {
         showToast(err.message, 'error');
