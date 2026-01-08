@@ -57,11 +57,15 @@
             <p class="text-sm text-gray-500">AI 网站流量增长排名</p>
           </div>
         </div>
-        <div class="hidden md:flex items-center gap-4">
-          <a href="profile.html" class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 text-sm font-medium">
+        <div class="flex items-center gap-4">
+          <div class="hidden md:flex items-center gap-2 text-sm text-gray-500">
+            <i class="fas fa-database"></i>
+            <span id="headerStats">数据统计</span>
+          </div>
+          <button onclick="togglePersonalCenter()" id="personalCenterBtn" class="inline-flex items-center px-4 py-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-gray-200">
             <i class="fas fa-user mr-2"></i>
-            个人中心
-          </a>
+            <span>个人中心</span>
+          </button>
         </div>
       </div>
     </div>
@@ -168,6 +172,18 @@
           <div id="filterPanel" class="hidden border-t border-gray-100 pt-5">
             <div class="flex flex-wrap items-center gap-x-8 gap-y-4">
               <!-- Monthly Visit 筛选 -->
+              <!-- Rank 筛选 -->
+              <div class="flex items-center gap-3">
+                <label class="flex items-center gap-2 text-sm font-medium text-gray-600 whitespace-nowrap">
+                  <i class="fas fa-hashtag text-indigo-500"></i>
+                  Rank
+                </label>
+                <input type="text" id="rankMin" placeholder="如 30" oninput="handleFilter()"
+                       class="w-20 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white outline-none transition-all">
+                <span class="text-gray-300">—</span>
+                <input type="text" id="rankMax" placeholder="如 100" oninput="handleFilter()"
+                       class="w-20 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white outline-none transition-all">
+              </div>
               <div class="flex items-center gap-3">
                 <label class="flex items-center gap-2 text-sm font-medium text-gray-600 whitespace-nowrap">
                   <i class="fas fa-eye text-blue-500"></i>
@@ -655,6 +671,8 @@
       searchKeyword: '',
       filterPanelOpen: false,
       filters: {
+        rankMin: null,
+        rankMax: null,
         visitMin: null,
         visitMax: null,
         growthMin: null,
@@ -715,6 +733,29 @@
     }
 
     // ==================== 工具函数 ====================
+
+    // 更新顶部统计信息（总榜数据：月份数 + 去重网站数）
+    function updateHeaderStats() {
+      const months = Object.keys(state.allData);
+      const monthCount = months.length;
+
+      // 统计去重的网站数量（按 handle 去重）
+      const uniqueHandles = new Set();
+      months.forEach(month => {
+        const websites = state.allData[month] || [];
+        websites.forEach(site => {
+          if (site.handle) {
+            uniqueHandles.add(site.handle);
+          }
+        });
+      });
+      const websiteCount = uniqueHandles.size;
+
+      const statsEl = document.getElementById('headerStats');
+      if (statsEl) {
+        statsEl.textContent = `共 ${monthCount} 个月 · ${websiteCount} 个网站`;
+      }
+    }
 
     // 解析数值输入（支持 100M, 100K, 10% 格式）
     function parseValueInput(value) {
@@ -1605,8 +1646,8 @@
         // 更新按钮渐变色
         uploadBtn.className = `inline-flex items-center px-5 py-2.5 bg-gradient-to-r ${config.gradient} text-white rounded-xl cursor-pointer hover:opacity-90 transition-all shadow-lg shadow-${config.color}-500/25 hover:shadow-${config.color}-500/40 hover:scale-105`;
       }
-      if (uploadBtnText && config) {
-        uploadBtnText.textContent = `上传${config.name}`;
+      if (uploadBtnText) {
+        uploadBtnText.textContent = '上传 JSON';
       }
     }
 
@@ -2091,6 +2132,8 @@
       const consecutiveGrowthVal = document.getElementById('consecutiveGrowth').value;
 
       state.filters = {
+        rankMin: parseChangeInput(document.getElementById('rankMin').value),
+        rankMax: parseChangeInput(document.getElementById('rankMax').value),
         visitMin: parseValueInput(document.getElementById('visitMin').value),
         visitMax: parseValueInput(document.getElementById('visitMax').value),
         growthMin: parseValueInput(document.getElementById('growthMin').value),
@@ -2173,6 +2216,8 @@
     // 重置全部
     function handleResetAll() {
       document.getElementById('searchInput').value = '';
+      document.getElementById('rankMin').value = '';
+      document.getElementById('rankMax').value = '';
       document.getElementById('visitMin').value = '';
       document.getElementById('visitMax').value = '';
       document.getElementById('growthMin').value = '';
@@ -2198,6 +2243,8 @@
       state.currentPage = 1;
       state.showFavoritesOnly = false;
       state.filters = {
+        rankMin: null,
+        rankMax: null,
         visitMin: null,
         visitMax: null,
         growthMin: null,
@@ -2732,7 +2779,11 @@
 
       // 3. 范围筛选
       filtered = filtered.filter(item => {
-        const { visitMin, visitMax, growthMin, growthMax, rateMin, rateMax } = state.filters;
+        const { rankMin, rankMax, visitMin, visitMax, growthMin, growthMax, rateMin, rateMax } = state.filters;
+
+        // 排名筛选
+        if (rankMin !== null && item.rank < rankMin) return false;
+        if (rankMax !== null && item.rank > rankMax) return false;
 
         if (visitMin !== null && item.month_visited_count < visitMin) return false;
         if (visitMax !== null && item.month_visited_count > visitMax) return false;
@@ -2794,13 +2845,19 @@
         // 如果是按 rank_change 排序，需要特殊处理
         if (state.sortField === 'rank_change') {
           const rankChangeMap = getRankChangeMap();
+
+          // CHANGE 排序时排除 NEW（新上榜的网站）
+          filtered = filtered.filter(item => {
+            const change = rankChangeMap[item.handle] || { type: 'new' };
+            return change.type !== 'new';
+          });
+
           filtered.sort((a, b) => {
             const aChange = rankChangeMap[a.handle] || { type: 'new' };
             const bChange = rankChangeMap[b.handle] || { type: 'new' };
 
-            // 计算排序值：NEW = Infinity，up = 正数，same = 0，down = 负数
+            // 计算排序值：up = 正数，same = 0，down = 负数
             const getChangeValue = (change) => {
-              if (change.type === 'new') return Infinity;
               if (change.type === 'up') return change.value;
               if (change.type === 'down') return -change.value;
               return 0; // same
@@ -3071,6 +3128,11 @@
       await loadFromStaticFiles();
       loadFromStorage();
 
+      // 为所有月份计算 rank（用于排名筛选）
+      Object.keys(state.allData).forEach(month => {
+        recalculateRanks(month);
+      });
+
       // 加载所有非主榜的榜单数据
       Object.keys(RANKING_CONFIG).forEach(type => {
         if (!RANKING_CONFIG[type].isMain) {
@@ -3082,6 +3144,7 @@
       updateNotesButton();
       updateTrendViewButton();
       updateSortIcons();  // 初始化排序图标状态
+      updateHeaderStats();  // 更新顶部统计信息
     });
 
     // ESC 关闭弹窗
