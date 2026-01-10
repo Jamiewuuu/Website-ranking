@@ -613,6 +613,38 @@
   </div>
   <!-- /Component: MonthSelectModal -->
 
+  <!-- Component: OverwriteConfirmModal -->
+  <div id="overwriteConfirmModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 transform scale-95 transition-transform duration-300" id="overwriteConfirmModalContent">
+      <div class="flex items-center justify-between p-5 border-b border-gray-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+            <i class="fas fa-exclamation-triangle text-amber-600"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900">覆盖确认</h3>
+            <p class="text-sm text-gray-500">已有数据将被覆盖</p>
+          </div>
+        </div>
+        <button onclick="closeOverwriteConfirmModal()" class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+      <div class="p-5">
+        <p id="overwriteConfirmMessage" class="text-gray-600"></p>
+      </div>
+      <div class="flex items-center justify-end gap-3 p-5 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
+        <button onclick="closeOverwriteConfirmModal()" class="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition font-medium">
+          取消
+        </button>
+        <button onclick="confirmOverwrite()" class="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl hover:from-amber-600 hover:to-orange-600 transition shadow-lg shadow-amber-500/25 font-medium">
+          <i class="fas fa-check mr-2"></i>确认覆盖
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- /Component: OverwriteConfirmModal -->
+
   <!-- Component: Toast (放在最后确保在最上层) -->
   <div id="toast" class="fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-[9999] flex items-center gap-3"></div>
   <!-- /Component: Toast -->
@@ -685,23 +717,13 @@
         consecutiveChange: null,  // 连续排名上升月数
         consecutiveGrowth: null   // 连续增长月数
       },
-      favorites: (() => {
-        const stored = localStorage.getItem('favorites');
-        if (!stored) return {};
-        const parsed = JSON.parse(stored);
-        // 兼容旧格式：如果是数组，转换为空对象（旧数据无法确定月份）
-        if (Array.isArray(parsed)) {
-          localStorage.removeItem('favorites');
-          return {};
-        }
-        return parsed;
-      })(),  // 按月份存储收藏 { "2025-11": ["handle1"], ... }
+      favorites: {},  // 按月份存储收藏 { "2025-11": ["handle1"], ... }，从服务器加载
       showFavoritesOnly: false,  // 是否只显示收藏
       showNotesOnly: false,  // 是否只显示有备注的
       translations: {},  // 翻译缓存 { "原文": "译文" }
       isTranslated: false,  // 是否已翻译
-      notes: JSON.parse(localStorage.getItem('notes') || '{}'),  // 备注 { "handle": "备注内容" }
-      showTrendView: localStorage.getItem('showTrendView') === 'true',  // 是否展开趋势视图
+      notes: {},  // 备注 { "handle": "备注内容" }，从服务器加载
+      showTrendView: false,  // 是否展开趋势视图，从服务器加载
       // 个人中心状态
       showPersonalCenter: false,  // 是否显示个人中心
       pcTab: 'all',  // 个人中心当前 Tab: 'all' | 'favorites' | 'notes'
@@ -937,38 +959,19 @@
 
     // ==================== 数据操作 ====================
 
-    // 从 LocalStorage 加载数据
+    // 更新数据显示（数据已从服务器加载到 state）
     function loadFromStorage() {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          state.allData = JSON.parse(stored);
-
-          const months = Object.keys(state.allData).sort().reverse();
-          if (months.length > 0) {
-            state.currentMonth = months[0];
-          }
-
-          updateMonthSelect();
-          applyFiltersAndRender();
-        }
-      } catch (e) {
-        console.error('加载数据失败:', e);
+      const months = Object.keys(state.allData).sort().reverse();
+      if (months.length > 0) {
+        state.currentMonth = months[0];
       }
+      updateMonthSelect();
+      applyFiltersAndRender();
     }
 
-    // 从 localStorage 加载指定榜单数据
+    // 加载指定榜单数据（兼容性函数，数据已从服务器加载）
     function loadRankingFromStorage(rankingType) {
-      try {
-        const storageKey = getStorageKey(rankingType);
-        const stored = localStorage.getItem(storageKey);
-        if (stored) {
-          state.rankings[rankingType] = JSON.parse(stored);
-          console.log(`[启动] 从 localStorage 加载${RANKING_CONFIG[rankingType].name}数据成功`);
-        }
-      } catch (e) {
-        console.error(`加载${RANKING_CONFIG[rankingType].name}数据失败:`, e);
-      }
+      console.log(`[加载] ${RANKING_CONFIG[rankingType].name}数据已从服务器加载`);
     }
 
     // 兼容性函数
@@ -976,32 +979,26 @@
       loadRankingFromStorage('revenue');
     }
 
-    // 保存指定榜单到 LocalStorage
-    function saveRankingToStorage(rankingType) {
+    // 保存指定榜单到服务器
+    async function saveRankingToStorage(rankingType) {
       try {
-        const storageKey = getStorageKey(rankingType);
-        localStorage.setItem(storageKey, JSON.stringify(state.rankings[rankingType]));
+        const filename = rankingType === 'traffic' ? 'allData.json' : 'revenueData.json';
+        const content = rankingType === 'traffic' ? state.allData : state.rankings[rankingType];
 
-        // 流量榜同时保存到服务器文件
-        if (rankingType === 'traffic') {
-          saveToServer();
-        }
+        await fetch(`${API_BASE}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename, content })
+        });
       } catch (e) {
         console.error(`保存${RANKING_CONFIG[rankingType].name}数据失败:`, e);
-        showToast('保存数据失败，可能存储空间不足', 'error');
+        showToast('保存数据失败', 'error');
       }
     }
 
-    // 保存到 LocalStorage（兼容旧代码）
+    // 保存到服务器（兼容旧代码）
     function saveToStorage() {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.allData));
-        // 同时保存到服务器文件
-        saveToServer();
-      } catch (e) {
-        console.error('保存数据失败:', e);
-        showToast('保存数据失败，可能存储空间不足', 'error');
-      }
+      saveToServer();
     }
 
     // ==================== 服务器 API ====================
@@ -1022,6 +1019,13 @@
           body: JSON.stringify({ filename: 'allData.json', content: state.allData })
         });
 
+        // 保存收入榜数据
+        await fetch(`${API_BASE}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: 'revenueData.json', content: state.rankings.revenue || {} })
+        });
+
         // 保存收藏
         await fetch(`${API_BASE}/save`, {
           method: 'POST',
@@ -1036,10 +1040,17 @@
           body: JSON.stringify({ filename: 'notes.json', content: state.notes })
         });
 
+        // 保存设置
+        await fetch(`${API_BASE}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: 'settings.json', content: { showTrendView: state.showTrendView } })
+        });
+
         console.log('[自动保存] 数据已保存到服务器');
       } catch (e) {
-        // 服务器未启动时静默失败，不影响正常使用
-        console.log('[自动保存] 服务器未连接，仅保存到 localStorage');
+        // 服务器未启动时静默失败
+        console.log('[自动保存] 服务器未连接');
       }
     }
 
@@ -1052,7 +1063,15 @@
           const dataJson = await dataRes.json();
           if (dataJson.success && dataJson.content) {
             state.allData = dataJson.content;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.allData));
+          }
+        }
+
+        // 加载收入榜数据
+        const revenueRes = await fetch(`${API_BASE}/load?filename=revenueData.json`);
+        if (revenueRes.ok) {
+          const revenueJson = await revenueRes.json();
+          if (revenueJson.success && revenueJson.content) {
+            state.rankings.revenue = revenueJson.content;
           }
         }
 
@@ -1062,7 +1081,6 @@
           const favJson = await favRes.json();
           if (favJson.success && favJson.content) {
             state.favorites = favJson.content;
-            localStorage.setItem('favorites', JSON.stringify(state.favorites));
           }
         }
 
@@ -1072,7 +1090,15 @@
           const notesJson = await notesRes.json();
           if (notesJson.success && notesJson.content) {
             state.notes = notesJson.content;
-            localStorage.setItem('notes', JSON.stringify(state.notes));
+          }
+        }
+
+        // 加载设置
+        const settingsRes = await fetch(`${API_BASE}/load?filename=settings.json`);
+        if (settingsRes.ok) {
+          const settingsJson = await settingsRes.json();
+          if (settingsJson.success && settingsJson.content) {
+            state.showTrendView = settingsJson.content.showTrendView || false;
           }
         }
 
@@ -1087,40 +1113,48 @@
     // 从静态 JSON 文件加载数据
     async function loadFromStaticFiles() {
       try {
-        // 加载主数据
         console.log('[启动] 正在从静态文件加载数据...');
+
+        // 加载主数据
         const dataRes = await fetch('./data/allData.json');
         if (dataRes.ok) {
           const data = await dataRes.json();
           state.allData = data;
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state.allData));
           console.log('[启动] 从静态文件加载主数据成功，共', Object.keys(data).length, '个月份的数据');
         } else {
           console.error('[启动] 加载 allData.json 失败:', dataRes.status, dataRes.statusText);
         }
 
-        // 收藏和备注优先使用 localStorage（用户本地操作的数据）
-        // 只有 localStorage 为空时才从静态文件加载
-        const localFavorites = localStorage.getItem('favorites');
-        if (!localFavorites) {
-          const favRes = await fetch('./data/favorites.json');
-          if (favRes.ok) {
-            const favData = await favRes.json();
-            state.favorites = favData;
-            localStorage.setItem('favorites', JSON.stringify(state.favorites));
-            console.log('[启动] 从静态文件加载收藏');
-          }
+        // 加载收入榜数据
+        const revenueRes = await fetch('./data/revenueData.json');
+        if (revenueRes.ok) {
+          const revenueData = await revenueRes.json();
+          state.rankings.revenue = revenueData;
+          console.log('[启动] 从静态文件加载收入榜数据');
         }
 
-        const localNotes = localStorage.getItem('notes');
-        if (!localNotes) {
-          const notesRes = await fetch('./data/notes.json');
-          if (notesRes.ok) {
-            const notesData = await notesRes.json();
-            state.notes = notesData;
-            localStorage.setItem('notes', JSON.stringify(state.notes));
-            console.log('[启动] 从静态文件加载备注');
-          }
+        // 加载收藏
+        const favRes = await fetch('./data/favorites.json');
+        if (favRes.ok) {
+          const favData = await favRes.json();
+          state.favorites = favData;
+          console.log('[启动] 从静态文件加载收藏');
+        }
+
+        // 加载备注
+        const notesRes = await fetch('./data/notes.json');
+        if (notesRes.ok) {
+          const notesData = await notesRes.json();
+          state.notes = notesData;
+          console.log('[启动] 从静态文件加载备注');
+        }
+
+        // 加载设置
+        const settingsRes = await fetch('./data/settings.json');
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          state.showTrendView = settingsData.showTrendView || false;
+          console.log('[启动] 从静态文件加载设置');
         }
 
         return true;
@@ -1131,12 +1165,24 @@
     }
 
     // 保存收藏和备注（单独调用）
-    function saveFavoritesAndNotes() {
-      localStorage.setItem('favorites', JSON.stringify(state.favorites));
-      localStorage.setItem('notes', JSON.stringify(state.notes));
-      // 只在本地开发且有 API 服务器时尝试保存到服务器
-      // 静态文件服务器（如 python -m http.server）无法处理 POST 请求
-      // saveToServer();  // 暂时禁用，避免控制台报错
+    async function saveFavoritesAndNotes() {
+      try {
+        // 保存收藏
+        await fetch(`${API_BASE}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: 'favorites.json', content: state.favorites })
+        });
+
+        // 保存备注
+        await fetch(`${API_BASE}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: 'notes.json', content: state.notes })
+        });
+      } catch (e) {
+        console.log('[保存] 服务器未连接');
+      }
     }
 
     // 更新月份列表
@@ -1256,6 +1302,42 @@
       pendingJsonData = null;
     }
 
+    // ==================== 覆盖确认弹窗 ====================
+    let pendingOverwriteCallback = null;
+
+    function openOverwriteConfirmModal(message, callback) {
+      pendingOverwriteCallback = callback;
+      const modal = document.getElementById('overwriteConfirmModal');
+      const content = document.getElementById('overwriteConfirmModalContent');
+      const messageEl = document.getElementById('overwriteConfirmMessage');
+
+      messageEl.innerHTML = message;
+      modal.classList.remove('hidden');
+
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        content.classList.remove('scale-95');
+      }, 10);
+    }
+
+    function closeOverwriteConfirmModal() {
+      const modal = document.getElementById('overwriteConfirmModal');
+      const content = document.getElementById('overwriteConfirmModalContent');
+      modal.classList.add('opacity-0');
+      content.classList.add('scale-95');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 300);
+      pendingOverwriteCallback = null;
+    }
+
+    function confirmOverwrite() {
+      if (pendingOverwriteCallback) {
+        pendingOverwriteCallback();
+      }
+      closeOverwriteConfirmModal();
+    }
+
     // 确认月份选择
     function confirmMonthSelect() {
       const yearSelect = document.getElementById('monthSelectYear');
@@ -1273,18 +1355,35 @@
       if (pendingJsonData) {
         // 检查是否是非主榜数据
         if (pendingRankingType && pendingRankingType !== 'traffic') {
-          const stats = processRankingMonthData(pendingRankingType, fullMonth, pendingJsonData);
-          saveRankingToStorage(pendingRankingType);
-          if (state.currentRankingType === pendingRankingType) {
-            updateMonthSelect();
-            applyFiltersAndRender();
+          const rankingType = pendingRankingType;
+          const jsonData = pendingJsonData;
+
+          // 执行实际处理的函数
+          const doProcess = () => {
+            const stats = processRankingMonthData(rankingType, fullMonth, jsonData);
+            saveRankingToStorage(rankingType);
+            if (state.currentRankingType === rankingType) {
+              updateMonthSelect();
+              applyFiltersAndRender();
+            }
+            showImportResult(rankingType, fullMonth, stats);
+          };
+
+          // 检查是否会覆盖已有数据
+          if (state.rankings[rankingType][fullMonth]?.length > 0) {
+            const config = RANKING_CONFIG[rankingType];
+            const message = `<strong>${config.name}</strong> 的 <span class="text-amber-600 font-medium">${fullMonth}</span> 已有数据。<br><br>继续操作将覆盖该月份的数据。`;
+            closeMonthSelectModal();
+            openOverwriteConfirmModal(message, doProcess);
+          } else {
+            doProcess();
+            closeMonthSelectModal();
           }
-          showImportResult(pendingRankingType, fullMonth, stats);
           pendingRankingType = null;
         } else {
           processJsonDataWithMonth(pendingJsonData, fullMonth);
+          closeMonthSelectModal();
         }
-        closeMonthSelectModal();
       }
     }
 
@@ -1823,43 +1922,65 @@
         rawData = rawData.data;
       }
 
-      // 如果是数组，说明是单月数据
+      // 执行实际的数据处理
+      const doProcess = () => {
+        if (Array.isArray(rawData)) {
+          const month = extractMonth(rawData[0]?.date);
+          if (!month) {
+            openMonthSelectModalForRanking(rankingType, rawData);
+            return;
+          }
+          const stats = processRankingMonthData(rankingType, month, rawData);
+          showImportResult(rankingType, month, stats);
+        } else if (typeof rawData === 'object') {
+          let totalStats = { total: 0, newCount: 0, updateCount: 0, missingFields: { website_name: 0, growth: 0, month_visited_count: 0 }, syncResult: null };
+          let lastMonth = '';
+          Object.entries(rawData).forEach(([month, data]) => {
+            if (Array.isArray(data)) {
+              const stats = processRankingMonthData(rankingType, month, data);
+              totalStats.total += stats.total;
+              totalStats.newCount += stats.newCount;
+              totalStats.updateCount += stats.updateCount;
+              totalStats.missingFields.website_name += stats.missingFields.website_name;
+              totalStats.missingFields.growth += stats.missingFields.growth;
+              totalStats.missingFields.month_visited_count += stats.missingFields.month_visited_count;
+              if (stats.syncResult) totalStats.syncResult = stats.syncResult;
+              lastMonth = month;
+            }
+          });
+          showImportResult(rankingType, lastMonth || '多月份', totalStats);
+        }
+
+        saveRankingToStorage(rankingType);
+
+        if (state.currentRankingType === rankingType) {
+          updateMonthSelect();
+          applyFiltersAndRender();
+        }
+      };
+
+      // 检查是否会覆盖已有数据
+      const existingMonths = [];
       if (Array.isArray(rawData)) {
         const month = extractMonth(rawData[0]?.date);
-        if (!month) {
-          // 没有月份，弹窗让用户选择（和流量榜一致）
-          openMonthSelectModalForRanking(rankingType, rawData);
-          return;
+        if (month && state.rankings[rankingType][month]?.length > 0) {
+          existingMonths.push(month);
         }
-        const stats = processRankingMonthData(rankingType, month, rawData);
-        showImportResult(rankingType, month, stats);
       } else if (typeof rawData === 'object') {
-        // 多月份数据
-        let totalStats = { total: 0, newCount: 0, updateCount: 0, missingFields: { website_name: 0, growth: 0, month_visited_count: 0 }, syncResult: null };
-        let lastMonth = '';
-        Object.entries(rawData).forEach(([month, data]) => {
-          if (Array.isArray(data)) {
-            const stats = processRankingMonthData(rankingType, month, data);
-            totalStats.total += stats.total;
-            totalStats.newCount += stats.newCount;
-            totalStats.updateCount += stats.updateCount;
-            totalStats.missingFields.website_name += stats.missingFields.website_name;
-            totalStats.missingFields.growth += stats.missingFields.growth;
-            totalStats.missingFields.month_visited_count += stats.missingFields.month_visited_count;
-            if (stats.syncResult) totalStats.syncResult = stats.syncResult;
-            lastMonth = month;
+        Object.keys(rawData).forEach(month => {
+          if (state.rankings[rankingType][month]?.length > 0) {
+            existingMonths.push(month);
           }
         });
-        showImportResult(rankingType, lastMonth || '多月份', totalStats);
       }
 
-      // 保存到 localStorage
-      saveRankingToStorage(rankingType);
-
-      // 如果当前是该榜单视图，刷新显示
-      if (state.currentRankingType === rankingType) {
-        updateMonthSelect();
-        applyFiltersAndRender();
+      // 如果有已有数据，弹出确认框
+      if (existingMonths.length > 0) {
+        const monthsStr = existingMonths.join('、');
+        const message = `<strong>${config.name}</strong> 的以下月份已有数据：<br><br><span class="text-amber-600 font-medium">${monthsStr}</span><br><br>继续操作将覆盖这些月份的数据。`;
+        openOverwriteConfirmModal(message, doProcess);
+      } else {
+        doProcess();
       }
     }
 
@@ -1934,7 +2055,7 @@
         };
       });
 
-      // 存储到对应榜单数据
+      // 存储到对应榜单数据（覆盖）
       state.rankings[rankingType][month] = processedData;
 
       // 如果配置为同步到主榜
@@ -2857,9 +2978,18 @@
     }
 
     // 切换趋势视图
-    function toggleTrendView() {
+    async function toggleTrendView() {
       state.showTrendView = !state.showTrendView;
-      localStorage.setItem('showTrendView', state.showTrendView);
+      // 保存设置到服务器
+      try {
+        await fetch(`${API_BASE}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: 'settings.json', content: { showTrendView: state.showTrendView } })
+        });
+      } catch (e) {
+        console.log('[保存] 服务器未连接');
+      }
       updateTrendViewButton();
       renderTable();
     }
