@@ -85,10 +85,12 @@
 
     const state = {
       allData: {},  // 所有月份数据
-      favorites: JSON.parse(localStorage.getItem('favorites') || '{}'),
-      notes: JSON.parse(localStorage.getItem('notes') || '{}'),
+      favorites: {},  // 从服务器加载
+      notes: {},  // 从服务器加载
       currentView: 'all'  // 'all' 或具体月份如 '2025-08'
     };
+
+    const API_BASE = 'http://localhost:3000/api';
 
     // 检测是否在静态托管环境
     const isStaticHosting = window.location.hostname !== 'localhost' &&
@@ -143,67 +145,90 @@
 
     // ==================== 数据加载 ====================
 
-    // 从静态文件加载主数据（allData）
-    async function loadAllDataFromStaticFiles() {
+    // 从服务器加载数据
+    async function loadFromServer() {
       try {
-        console.log('[个人中心] 正在从静态文件加载主数据...');
+        // 加载主数据
+        const dataRes = await fetch(`${API_BASE}/load?filename=allData.json`);
+        if (dataRes.ok) {
+          const dataJson = await dataRes.json();
+          if (dataJson.success && dataJson.content) {
+            state.allData = dataJson.content;
+          }
+        }
+
+        // 加载收藏
+        const favRes = await fetch(`${API_BASE}/load?filename=favorites.json`);
+        if (favRes.ok) {
+          const favJson = await favRes.json();
+          if (favJson.success && favJson.content) {
+            state.favorites = favJson.content;
+          }
+        }
+
+        // 加载备注
+        const notesRes = await fetch(`${API_BASE}/load?filename=notes.json`);
+        if (notesRes.ok) {
+          const notesJson = await notesRes.json();
+          if (notesJson.success && notesJson.content) {
+            state.notes = notesJson.content;
+          }
+        }
+
+        console.log('[个人中心] 从服务器加载数据成功');
+        console.log('[个人中心] 加载后 state.favorites:', state.favorites);
+        console.log('[个人中心] 加载后 state.notes:', state.notes);
+        return true;
+      } catch (e) {
+        console.log('[个人中心] 服务器未连接，尝试从静态文件加载');
+        return false;
+      }
+    }
+
+    // 从静态文件加载数据
+    async function loadFromStaticFiles() {
+      try {
+        console.log('[个人中心] 正在从静态文件加载数据...');
+
+        // 加载主数据
         const dataRes = await fetch('./data/allData.json');
         if (dataRes.ok) {
           const data = await dataRes.json();
           state.allData = data;
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state.allData));
           console.log('[个人中心] 从静态文件加载主数据成功');
-          return true;
         }
-        return false;
+
+        // 加载收藏
+        const favRes = await fetch('./data/favorites.json');
+        if (favRes.ok) {
+          state.favorites = await favRes.json();
+          console.log('[个人中心] 从静态文件加载收藏成功');
+        }
+
+        // 加载备注
+        const notesRes = await fetch('./data/notes.json');
+        if (notesRes.ok) {
+          state.notes = await notesRes.json();
+          console.log('[个人中心] 从静态文件加载备注成功');
+        }
+
+        console.log('[个人中心] 加载后 state.favorites:', state.favorites);
+        console.log('[个人中心] 加载后 state.notes:', state.notes);
+        return true;
       } catch (e) {
         console.error('[个人中心] 加载静态文件失败:', e);
         return false;
       }
     }
 
-    // 从 localStorage 加载收藏和备注
+    // 兼容性函数
     function loadFavoritesAndNotes() {
-      const favStored = localStorage.getItem('favorites');
-      console.log('[个人中心] localStorage favorites:', favStored);
-      if (favStored) {
-        try {
-          const parsed = JSON.parse(favStored);
-          // 兼容旧格式
-          if (!Array.isArray(parsed)) {
-            state.favorites = parsed;
-          }
-        } catch (e) {
-          console.error('[个人中心] 解析 favorites 失败:', e);
-        }
-      }
-
-      const notesStored = localStorage.getItem('notes');
-      console.log('[个人中心] localStorage notes:', notesStored);
-      if (notesStored) {
-        try {
-          state.notes = JSON.parse(notesStored);
-        } catch (e) {
-          console.error('[个人中心] 解析 notes 失败:', e);
-        }
-      }
-      console.log('[个人中心] 加载后 state.favorites:', state.favorites);
-      console.log('[个人中心] 加载后 state.notes:', state.notes);
+      // 数据已从服务器加载，无需操作
     }
 
-    // 从 localStorage 加载数据
+    // 兼容性函数
     function loadFromStorage() {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        try {
-          state.allData = JSON.parse(stored);
-          console.log('[个人中心] 从 localStorage 加载数据成功');
-          return true;
-        } catch (e) {
-          console.error('[个人中心] 解析 localStorage 数据失败:', e);
-        }
-      }
-      return false;
+      return Object.keys(state.allData).length > 0;
     }
 
     // ==================== 核心逻辑 ====================
@@ -455,8 +480,16 @@
         delete state.notes[handle];
       }
 
-      // 保存到 localStorage
-      localStorage.setItem('notes', JSON.stringify(state.notes));
+      // 保存到服务器
+      try {
+        await fetch(`${API_BASE}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: 'notes.json', content: state.notes })
+        });
+      } catch (e) {
+        console.log('[保存] 服务器未连接');
+      }
 
       // 重新渲染
       renderMonthList();
@@ -550,13 +583,12 @@
 
     // ==================== 初始化 ====================
     document.addEventListener('DOMContentLoaded', async function() {
-      // 1. 从 localStorage 加载收藏和备注（用户在榜单页的操作）
-      loadFavoritesAndNotes();
+      // 1. 尝试从服务器加载数据
+      const serverOk = await loadFromServer();
 
-      // 2. 加载主数据（allData）：优先 localStorage，然后尝试静态文件
-      const hasLocal = loadFromStorage();
-      if (!hasLocal || Object.keys(state.allData).length === 0) {
-        await loadAllDataFromStaticFiles();
+      // 2. 如果服务器未连接，从静态文件加载
+      if (!serverOk || Object.keys(state.allData).length === 0) {
+        await loadFromStaticFiles();
       }
 
       // 如果还没有数据，显示空状态
