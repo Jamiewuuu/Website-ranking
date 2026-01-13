@@ -34,6 +34,10 @@
     "freebeat",
     "fliflik-voice-changer",
     "talking-photo-lipsync",
-    "lipsync-video"
+    "lipsync-video",
+    "devoice",
+    "make-song-ai-song-generator",
+    "pokecut-ai-powered-online-photo-editor",
+    "soulgen"
   ]
 }
