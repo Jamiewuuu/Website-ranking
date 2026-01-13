@@ -18,6 +18,20 @@
     }
   </script>
   <style>
+    /* 备注折叠样式 */
+    .note-clamp {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      white-space: pre-wrap;
+    }
+    .note-expanded {
+      display: block;
+      overflow: visible;
+      white-space: pre-wrap;
+    }
+
     /* 排序箭头样式 */
     .sort-arrows {
       display: inline-flex;
@@ -518,28 +532,34 @@
   </div>
   <!-- /Component: PasteModal -->
 
-  <!-- Component: NoteModal -->
-  <div id="noteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 transform scale-95 transition-transform duration-300" id="noteModalContent">
-      <div class="flex items-center justify-between p-5 border-b border-gray-100">
+  <!-- Component: NoteDrawer -->
+  <div id="noteModal" class="fixed inset-0 z-50 hidden">
+    <!-- 背景遮罩 -->
+    <div id="noteModalOverlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm opacity-0 transition-opacity duration-300" onclick="closeNoteModal()"></div>
+    <!-- 抽屉内容 -->
+    <div id="noteModalContent" class="absolute top-0 right-0 h-full w-full max-w-lg bg-white shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
+      <!-- 头部 -->
+      <div class="flex items-center justify-between p-5 border-b border-gray-100 flex-shrink-0">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
             <i class="fas fa-sticky-note text-yellow-600"></i>
           </div>
           <div>
             <h3 class="text-lg font-semibold text-gray-900">备注</h3>
-            <p id="noteModalName" class="text-sm text-gray-500"></p>
+            <p id="noteModalName" class="text-sm text-gray-500 truncate max-w-xs"></p>
           </div>
         </div>
         <button onclick="closeNoteModal()" class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition">
           <i class="fas fa-times text-xl"></i>
         </button>
       </div>
-      <div class="p-5">
+      <!-- 内容区域 -->
+      <div class="flex-1 p-5 overflow-hidden flex flex-col">
         <textarea id="noteInput" placeholder="输入备注内容..."
-                  class="w-full h-32 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl resize-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 focus:bg-white outline-none text-sm transition-all"></textarea>
+                  class="w-full flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl resize-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500 focus:bg-white outline-none text-sm transition-all"></textarea>
       </div>
-      <div class="flex items-center justify-between gap-3 p-5 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
+      <!-- 底部按钮 -->
+      <div class="flex items-center justify-between gap-3 p-5 border-t border-gray-100 bg-gray-50/50 flex-shrink-0">
         <button onclick="deleteNote()" id="deleteNoteBtn" class="px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-xl transition font-medium hidden">
           <i class="fas fa-trash-alt mr-2"></i>删除
         </button>
@@ -554,7 +574,7 @@
       </div>
     </div>
   </div>
-  <!-- /Component: NoteModal -->
+  <!-- /Component: NoteDrawer -->
 
   <!-- Component: MonthSelectModal -->
   <div id="monthSelectModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300">
@@ -2335,10 +2355,11 @@
     // 当前编辑的备注 handle
     let currentNoteHandle = '';
 
-    // 打开备注弹窗
+    // 打开备注抽屉
     function openNoteModal(handle, name) {
       currentNoteHandle = handle;
       const modal = document.getElementById('noteModal');
+      const overlay = document.getElementById('noteModalOverlay');
       const content = document.getElementById('noteModalContent');
       const noteInput = document.getElementById('noteInput');
       const deleteBtn = document.getElementById('deleteNoteBtn');
@@ -2356,18 +2377,19 @@
 
       modal.classList.remove('hidden');
       setTimeout(() => {
-        modal.classList.remove('opacity-0');
-        content.classList.remove('scale-95');
+        overlay.classList.remove('opacity-0');
+        content.classList.remove('translate-x-full');
         noteInput.focus();
       }, 10);
     }
 
-    // 关闭备注弹窗
+    // 关闭备注抽屉
     function closeNoteModal() {
       const modal = document.getElementById('noteModal');
+      const overlay = document.getElementById('noteModalOverlay');
       const content = document.getElementById('noteModalContent');
-      modal.classList.add('opacity-0');
-      content.classList.add('scale-95');
+      overlay.classList.add('opacity-0');
+      content.classList.add('translate-x-full');
       setTimeout(() => {
         modal.classList.add('hidden');
       }, 300);
@@ -3073,6 +3095,40 @@
       return getAllFavorites();
     }
 
+    // 切换备注展开/收起状态
+    function toggleNoteExpand(handle) {
+      const textEl = document.querySelector(`[data-note-text="${handle}"]`);
+      const toggleBtn = document.querySelector(`[data-note-toggle="${handle}"]`);
+      if (!textEl || !toggleBtn) return;
+
+      const isExpanded = textEl.classList.contains('note-expanded');
+      if (isExpanded) {
+        textEl.classList.remove('note-expanded');
+        textEl.classList.add('note-clamp');
+        toggleBtn.textContent = '展开全部';
+      } else {
+        textEl.classList.remove('note-clamp');
+        textEl.classList.add('note-expanded');
+        toggleBtn.textContent = '收起';
+      }
+    }
+
+    // 检测备注是否溢出，显示展开按钮
+    function checkNoteOverflow() {
+      document.querySelectorAll('[data-note-text]').forEach(el => {
+        const handle = el.getAttribute('data-note-text');
+        const toggleBtn = document.querySelector(`[data-note-toggle="${handle}"]`);
+        if (!toggleBtn) return;
+
+        // 检测是否被截断（scrollHeight > clientHeight）
+        if (el.scrollHeight > el.clientHeight + 2) {
+          toggleBtn.classList.remove('hidden');
+        } else {
+          toggleBtn.classList.add('hidden');
+        }
+      });
+    }
+
     // 切换收藏状态（存储到当前月份）
     function toggleFavorite(handle) {
       if (!state.currentMonth) return;
@@ -3532,7 +3588,7 @@
                       title="${state.notes[item.handle] ? escapeHtml(state.notes[item.handle]) : '添加备注'}">
                 <i class="${state.notes[item.handle] ? 'fas' : 'far'} fa-sticky-note"></i>
                 ${state.notes[item.handle] ? `
-                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg whitespace-nowrap max-w-xs truncate opacity-0 group-hover/note:opacity-100 transition-opacity pointer-events-none z-50">
+                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg whitespace-pre-wrap max-w-xs opacity-0 group-hover/note:opacity-100 transition-opacity pointer-events-none z-50">
                     ${escapeHtml(state.notes[item.handle])}
                   </div>
                 ` : ''}
@@ -3551,6 +3607,9 @@
 
         return mainRow + trendRow;
       }).join('');
+
+      // 检测备注是否溢出，显示展开按钮
+      requestAnimationFrame(() => checkNoteOverflow());
     }
 
     // 渲染分页
@@ -3959,12 +4018,20 @@
                   </div>
                 ` : ''}
                 ${noteContent ? `
-                  <div onclick="openNoteModal('${escapeHtml(item.handle)}', '${escapeHtml(item.website_name || item.name)}')"
-                       class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors">
+                  <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <div class="flex items-start gap-2">
-                      <i class="fas fa-sticky-note text-yellow-500 mt-0.5"></i>
-                      <span class="text-sm text-gray-700 flex-1">${escapeHtml(noteContent)}</span>
-                      <i class="fas fa-edit text-gray-400 hover:text-yellow-600 text-xs mt-0.5"></i>
+                      <i class="fas fa-sticky-note text-yellow-500 mt-0.5 flex-shrink-0"></i>
+                      <div class="flex-1 min-w-0">
+                        <span data-note-text="${escapeHtml(item.handle)}"
+                              class="text-sm text-gray-700 note-clamp">${escapeHtml(noteContent)}</span>
+                        <button onclick="event.stopPropagation(); toggleNoteExpand('${escapeHtml(item.handle)}')"
+                                data-note-toggle="${escapeHtml(item.handle)}"
+                                class="text-xs text-yellow-600 hover:text-yellow-700 mt-1 hidden">
+                          展开全部
+                        </button>
+                      </div>
+                      <i onclick="openNoteModal('${escapeHtml(item.handle)}', '${escapeHtml(item.website_name || item.name)}')"
+                         class="fas fa-edit text-gray-400 hover:text-yellow-600 text-xs mt-0.5 cursor-pointer flex-shrink-0"></i>
                     </div>
                   </div>
                 ` : ''}
@@ -3988,6 +4055,9 @@
           </tr>
         `;
       }).join('');
+
+      // 检测备注是否溢出，显示展开按钮
+      requestAnimationFrame(() => checkNoteOverflow());
     }
 
     // 在个人中心中切换收藏（需要刷新视图）
