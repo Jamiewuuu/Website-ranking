@@ -3156,8 +3156,28 @@
       }
 
       saveFavoritesAndNotes();
-      renderTable();
+      // 只更新按钮样式，避免重新渲染整个表格（防止翻译重置）
+      updateFavoriteButtonStyle(handle);
       updateFavoritesButton();
+    }
+
+    // 更新单个收藏按钮的样式
+    function updateFavoriteButtonStyle(handle) {
+      const btn = document.querySelector(`[data-favorite-btn="${handle}"]`);
+      if (!btn) return;
+
+      const isFav = isFavorite(handle);
+      const icon = btn.querySelector('i');
+
+      if (isFav) {
+        btn.className = 'w-8 h-8 flex items-center justify-center rounded-full transition-all text-pink-500 bg-pink-50 hover:bg-pink-100';
+        if (icon) icon.className = 'fas fa-heart';
+      } else {
+        btn.className = 'w-8 h-8 flex items-center justify-center rounded-full transition-all text-gray-300 hover:text-pink-400 hover:bg-pink-50';
+        if (icon) icon.className = 'far fa-heart';
+      }
+      // 保留 data 属性
+      btn.setAttribute('data-favorite-btn', handle);
     }
 
     // 检查是否已收藏（跨月份检查）
@@ -3595,7 +3615,7 @@
               </button>
             </td>
             <td class="px-5 py-4 text-center">
-              <button onclick="toggleFavorite('${escapeHtml(item.handle)}')" class="w-8 h-8 flex items-center justify-center rounded-full transition-all ${isFavorite(item.handle) ? 'text-pink-500 bg-pink-50 hover:bg-pink-100' : 'text-gray-300 hover:text-pink-400 hover:bg-pink-50'}">
+              <button onclick="toggleFavorite('${escapeHtml(item.handle)}')" data-favorite-btn="${escapeHtml(item.handle)}" class="w-8 h-8 flex items-center justify-center rounded-full transition-all ${isFavorite(item.handle) ? 'text-pink-500 bg-pink-50 hover:bg-pink-100' : 'text-gray-300 hover:text-pink-400 hover:bg-pink-50'}">
                 <i class="${isFavorite(item.handle) ? 'fas' : 'far'} fa-heart"></i>
               </button>
             </td>
