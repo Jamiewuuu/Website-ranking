@@ -2400,16 +2400,19 @@
     function saveNote() {
       const noteInput = document.getElementById('noteInput');
       const note = noteInput.value.trim();
+      const handle = currentNoteHandle;
 
       if (note) {
-        state.notes[currentNoteHandle] = note;
+        state.notes[handle] = note;
       } else {
-        delete state.notes[currentNoteHandle];
+        delete state.notes[handle];
       }
 
       saveFavoritesAndNotes();
       closeNoteModal();
-      renderTable();
+      // 只更新备注按钮，避免重新渲染整个表格（防止翻译重置）
+      updateNoteCellStyle(handle);
+      updateNotesButton();
       // 如果在个人中心视图，刷新个人中心
       if (state.showPersonalCenter) {
         applyPCFiltersAndRender();
@@ -2419,10 +2422,13 @@
 
     // 删除备注
     function deleteNote() {
-      delete state.notes[currentNoteHandle];
+      const handle = currentNoteHandle;
+      delete state.notes[handle];
       saveFavoritesAndNotes();
       closeNoteModal();
-      renderTable();
+      // 只更新备注按钮，避免重新渲染整个表格（防止翻译重置）
+      updateNoteCellStyle(handle);
+      updateNotesButton();
       // 如果在个人中心视图，刷新个人中心
       if (state.showPersonalCenter) {
         applyPCFiltersAndRender();
@@ -3156,8 +3162,50 @@
       }
 
       saveFavoritesAndNotes();
-      renderTable();
+      // 只更新按钮样式，避免重新渲染整个表格（防止翻译重置）
+      updateFavoriteButtonStyle(handle);
       updateFavoritesButton();
+    }
+
+    // 更新单个收藏按钮的样式
+    function updateFavoriteButtonStyle(handle) {
+      const btn = document.querySelector(`[data-favorite-btn="${handle}"]`);
+      if (!btn) return;
+
+      const isFav = isFavorite(handle);
+      const icon = btn.querySelector('i');
+
+      if (isFav) {
+        btn.className = 'w-8 h-8 flex items-center justify-center rounded-full transition-all text-pink-500 bg-pink-50 hover:bg-pink-100';
+        if (icon) icon.className = 'fas fa-heart';
+      } else {
+        btn.className = 'w-8 h-8 flex items-center justify-center rounded-full transition-all text-gray-300 hover:text-pink-400 hover:bg-pink-50';
+        if (icon) icon.className = 'far fa-heart';
+      }
+      // 保留 data 属性
+      btn.setAttribute('data-favorite-btn', handle);
+    }
+
+    // 更新单个备注按钮的样式（避免重新渲染整个表格）
+    function updateNoteCellStyle(handle) {
+      const cell = document.querySelector(`[data-note-cell="${handle}"]`);
+      if (!cell) return;
+
+      const itemName = cell.getAttribute('data-item-name') || '';
+      const note = state.notes[handle];
+
+      cell.innerHTML = `
+        <button onclick="openNoteModal('${escapeHtml(handle)}', '${escapeHtml(itemName)}')"
+                class="w-8 h-8 flex items-center justify-center rounded-full transition-all relative group/note ${note ? 'text-yellow-500 bg-yellow-50 hover:bg-yellow-100' : 'text-gray-300 hover:text-yellow-400 hover:bg-yellow-50'}"
+                title="${note ? escapeHtml(note) : '添加备注'}">
+          <i class="${note ? 'fas' : 'far'} fa-sticky-note"></i>
+          ${note ? `
+            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg whitespace-pre-wrap max-w-xs opacity-0 group-hover/note:opacity-100 transition-opacity pointer-events-none z-50">
+              ${escapeHtml(note)}
+            </div>
+          ` : ''}
+        </button>
+      `;
     }
 
     // 检查是否已收藏（跨月份检查）
@@ -3582,7 +3630,7 @@
             <td class="px-5 py-4 text-center">
               ${changeHtml}
             </td>
-            <td class="px-5 py-4 text-center">
+            <td class="px-5 py-4 text-center" data-note-cell="${escapeHtml(item.handle)}" data-item-name="${escapeHtml(item.website_name || item.name)}">
               <button onclick="openNoteModal('${escapeHtml(item.handle)}', '${escapeHtml(item.website_name || item.name)}')"
                       class="w-8 h-8 flex items-center justify-center rounded-full transition-all relative group/note ${state.notes[item.handle] ? 'text-yellow-500 bg-yellow-50 hover:bg-yellow-100' : 'text-gray-300 hover:text-yellow-400 hover:bg-yellow-50'}"
                       title="${state.notes[item.handle] ? escapeHtml(state.notes[item.handle]) : '添加备注'}">
@@ -3595,7 +3643,7 @@
               </button>
             </td>
             <td class="px-5 py-4 text-center">
-              <button onclick="toggleFavorite('${escapeHtml(item.handle)}')" class="w-8 h-8 flex items-center justify-center rounded-full transition-all ${isFavorite(item.handle) ? 'text-pink-500 bg-pink-50 hover:bg-pink-100' : 'text-gray-300 hover:text-pink-400 hover:bg-pink-50'}">
+              <button onclick="toggleFavorite('${escapeHtml(item.handle)}')" data-favorite-btn="${escapeHtml(item.handle)}" class="w-8 h-8 flex items-center justify-center rounded-full transition-all ${isFavorite(item.handle) ? 'text-pink-500 bg-pink-50 hover:bg-pink-100' : 'text-gray-300 hover:text-pink-400 hover:bg-pink-50'}">
                 <i class="${isFavorite(item.handle) ? 'fas' : 'far'} fa-heart"></i>
               </button>
             </td>
