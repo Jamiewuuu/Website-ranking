@@ -1184,14 +1184,30 @@
       try {
         console.log('[启动] 正在从静态文件加载数据...');
 
-        // 加载主数据
-        const dataRes = await fetch('./data/allData.json');
-        if (dataRes.ok) {
-          const data = await dataRes.json();
-          state.allData = data;
-          console.log('[启动] 从静态文件加载主数据成功，共', Object.keys(data).length, '个月份的数据');
+        // 加载主数据（按月份拆分加载）
+        const indexRes = await fetch(`./data/monthly/index.json?t=${Date.now()}`);
+        if (indexRes.ok) {
+          const months = await indexRes.json();
+          const results = await Promise.all(
+            months.map(month =>
+              fetch(`./data/monthly/${month}.json?t=${Date.now()}`)
+                .then(res => res.ok ? res.json().then(data => ({ month, data })) : null)
+                .catch(() => null)
+            )
+          );
+          results.forEach(r => {
+            if (r) state.allData[r.month] = r.data;
+          });
+          console.log('[启动] 从静态文件加载主数据成功，共', Object.keys(state.allData).length, '个月份的数据');
         } else {
-          console.error('[启动] 加载 allData.json 失败:', dataRes.status, dataRes.statusText);
+          // 回退：尝试加载完整的 allData.json
+          const dataRes = await fetch('./data/allData.json');
+          if (dataRes.ok) {
+            state.allData = await dataRes.json();
+            console.log('[启动] 从 allData.json 回退加载成功');
+          } else {
+            console.error('[启动] 加载数据失败');
+          }
         }
 
         // 加载收入榜数据
