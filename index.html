@@ -1184,19 +1184,25 @@
       try {
         console.log('[启动] 正在从静态文件加载数据...');
 
-        // 加载主数据（按月份拆分加载）
+        // 加载主数据（按月份拆分加载，支持大月份多文件）
         const indexRes = await fetch(`./data/monthly/index.json?t=${Date.now()}`);
         if (indexRes.ok) {
-          const months = await indexRes.json();
-          const results = await Promise.all(
-            months.map(month =>
-              fetch(`./data/monthly/${month}.json?t=${Date.now()}`)
-                .then(res => res.ok ? res.json().then(data => ({ month, data })) : null)
-                .catch(() => null)
-            )
-          );
+          const entries = await indexRes.json();
+          // 为每个月份并行加载所有 chunk 文件
+          const monthPromises = entries.map(async (entry) => {
+            const chunks = await Promise.all(
+              entry.files.map(file =>
+                fetch(`./data/monthly/${file}?t=${Date.now()}`)
+                  .then(res => res.ok ? res.json() : [])
+                  .catch(() => [])
+              )
+            );
+            // 合并所有 chunk 为一个数组
+            return { month: entry.month, data: chunks.flat() };
+          });
+          const results = await Promise.all(monthPromises);
           results.forEach(r => {
-            if (r) state.allData[r.month] = r.data;
+            if (r.data.length > 0) state.allData[r.month] = r.data;
           });
           console.log('[启动] 从静态文件加载主数据成功，共', Object.keys(state.allData).length, '个月份的数据');
         } else {
